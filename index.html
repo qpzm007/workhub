@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JKP WorkHub - 통합 업무 관리</title>
+    <meta name="description" content="JKP WorkHub는 사내 부서별 기획서, 공통 서식 양식, 거래처 연락처 및 프로젝트 일정을 실시간 연동하는 통합 사내 업무 포털 솔루션입니다.">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css?v=1782823026213">
+
+
+    <!-- Editor.js & Plugins -->
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/list@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/marker@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@editorjs/image@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/editorjs-html@3.4.0/build/edjsHTML.js"></script>
+    <!-- Custom Task Linker Plugin -->
+    <script src="task-linker-plugin.js"></script>
+    
+    <!-- Custom Editor.js Styles -->
+    <style>
+        .codex-editor { padding-top: 0 !important; }
+        .ce-block { margin-top: 0 !important; padding-top: 0 !important; }
+        .codex-editor__redactor { padding-bottom: 50px !important; }
+        .ce-block__content, .ce-toolbar__content { max-width: 100% !important; padding: 0 40px; }
+        /* When expanded */
+        .panel-expanded .ce-block__content, .panel-expanded .ce-toolbar__content { max-width: 800px !important; margin: 0 auto; }
+        .panel-expanded #task-detail-metadata-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+        
+        /* Task Link Custom Block Style */
+        .task-link-card {
+            border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin: 10px 0;
+            display: flex; align-items: center; cursor: pointer; transition: all 0.2s;
+            background-color: #f8fafc;
+        }
+        .task-link-card:hover { border-color: #cbd5e1; background-color: #f1f5f9; }
+        .task-link-icon { margin-right: 12px; color: #3b82f6; font-size: 20px; }
+        .task-link-title { font-weight: 600; color: #1e293b; font-size: 14px; flex: 1; }
+        .task-link-status { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #e2e8f0; color: #475569; font-weight: bold; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased h-screen overflow-hidden flex bg-slate-50">
+
+    <!-- Sidebar (Left navigation panel) -->
+    <aside id="sidebar" class="w-64 bg-slate-900 text-slate-300 flex flex-col transition-all duration-300 hidden md:flex z-20 shadow-xl flex-shrink-0">
+        <!-- Logo Header -->
+        <div class="h-16 flex items-center px-6 border-b border-slate-700 bg-slate-950 text-white font-bold text-xl tracking-wider select-none">
+            <i class="fa-solid fa-layer-group text-blue-500 mr-3"></i>
+            JKP WorkHub
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 mt-4 select-none">메뉴</p>
+            <a href="#" id="nav-dashboard" data-view="dashboard" class="nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors nav-active">
+                <i class="fa-solid fa-house w-5 text-center mr-3"></i>
+                <span class="font-medium">대시보드</span>
+            </a>
+            <a href="#" id="nav-search" data-view="search" class="nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors">
+                <i class="fa-solid fa-magnifying-glass w-5 text-center mr-3 group-hover:text-white"></i>
+                <span class="font-medium group-hover:text-white">통합 검색 (Everything)</span>
+            </a>
+            
+            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 mt-6 select-none">공통 데이터베이스</p>
+            <a href="#" id="nav-vendors" data-view="vendors" class="nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors">
+                <i class="fa-solid fa-address-card w-5 text-center mr-3 text-emerald-400"></i>
+                <span class="font-medium group-hover:text-white">명함첩 (WorkCard)</span>
+            </a>
+            <a href="#" id="nav-components" data-view="components" class="nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors">
+                <i class="fa-solid fa-folder-tree w-5 text-center mr-3 text-amber-400"></i>
+                <span class="font-medium group-hover:text-white">공유 자료실 (양식/도면)</span>
+            </a>
+            <div>
+                <a href="#" id="nav-orders" data-view="orders" class="nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors">
+                    <i class="fa-solid fa-list-check w-5 text-center mr-3 text-purple-400"></i>
+                    <span class="font-medium group-hover:text-white">프로젝트 & 업무 관리</span>
+                </a>
+                <div class="ml-9 mt-1 space-y-1 hidden" id="para-submenu">
+                    <a href="#" data-para="all" class="para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg group transition-colors text-sm text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-search w-4 text-center mr-2 text-slate-500"></i> 전체 보기
+                    </a>
+                    <a href="#" data-para="projects" class="para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg group transition-colors text-sm text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-folder-tree w-4 text-center mr-2 text-blue-400"></i> Projects (단기)
+                    </a>
+                    <a href="#" data-para="areas" class="para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg group transition-colors text-sm text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-layer-group w-4 text-center mr-2 text-emerald-400"></i> Areas (영역)
+                    </a>
+                    <a href="#" data-para="resources" class="para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg group transition-colors text-sm text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-book w-4 text-center mr-2 text-amber-400"></i> Resources (자료)
+                    </a>
+                    <a href="#" data-para="archives" class="para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg group transition-colors text-sm text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-box-archive w-4 text-center mr-2 text-slate-500"></i> Archives (보관)
+                    </a>
+                </div>
+            </div>
+            <a href="#" id="nav-all-tasks" data-view="all-tasks" class="nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors mt-1">
+                <i class="fa-solid fa-table-list w-5 text-center mr-3 text-cyan-400"></i>
+                <span class="font-medium group-hover:text-white">전체 업무 리스트</span>
+            </a>
+            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 mt-6 select-none">바탕화면 실시간 폴더</p>
+            <div id="sidebar-folders-container" class="space-y-1">
+                <!-- Dynamically populated folders list -->
+            </div>
+        </nav>
+
+        <!-- User Profile Footer (Interactive Department Selector) -->
+        <div class="p-4 border-t border-slate-700 bg-slate-900">
+            <a href="#" data-view="settings" class="nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors">
+                <i class="fa-solid fa-gear w-5 text-center mr-3 text-slate-400 group-hover:text-white transition-colors"></i>
+                <span class="font-medium group-hover:text-white">환경설정</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Mobile Drawer Sidebar (Hidden on large screens) -->
+    <div id="mobile-sidebar-backdrop" class="fixed inset-0 bg-slate-900/50 z-30 hidden transition-opacity duration-300"></div>
+    <aside id="mobile-sidebar" class="fixed inset-y-0 left-0 w-64 bg-slate-900 text-slate-300 flex flex-col z-40 transform -translate-x-full transition-transform duration-300 ease-in-out md:hidden shadow-2xl">
+        <div class="h-16 flex items-center justify-between px-6 border-b border-slate-700 bg-slate-950 text-white font-bold text-xl">
+            <span class="flex items-center"><i class="fa-solid fa-layer-group text-blue-500 mr-3"></i> JKP WorkHub</span>
+            <button id="close-mobile-menu" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">메뉴</p>
+            <a href="#" data-view="dashboard" class="mobile-nav-btn flex items-center px-3 py-2.5 bg-blue-600 text-white rounded-lg">
+                <i class="fa-solid fa-house w-5 text-center mr-3"></i>
+                <span class="font-medium">대시보드</span>
+            </a>
+            <a href="#" data-view="search" class="mobile-nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors">
+                <i class="fa-solid fa-magnifying-glass w-5 text-center mr-3"></i>
+                <span class="font-medium">통합 검색 (Everything)</span>
+            </a>
+            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 mt-6">데이터베이스</p>
+            <a href="#" data-view="vendors" class="mobile-nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors">
+                <i class="fa-solid fa-address-book w-5 text-center mr-3 text-emerald-400"></i>
+                <span class="font-medium">협력사 / 고객사 관리</span>
+            </a>
+            <a href="#" data-view="components" class="mobile-nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors">
+                <i class="fa-solid fa-folder-tree w-5 text-center mr-3 text-amber-400"></i>
+                <span class="font-medium">공유 자료실 (양식/도면)</span>
+            </a>
+            <div>
+                <a href="#" data-view="orders" class="mobile-nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors">
+                    <i class="fa-solid fa-list-check w-5 text-center mr-3 text-purple-400"></i>
+                    <span class="font-medium">프로젝트 & 업무 관리</span>
+                </a>
+                <div class="ml-9 mt-1 space-y-1 hidden" id="mobile-para-submenu">
+                    <a href="#" data-para="all" class="mobile-para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg transition-colors text-sm text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-search w-4 text-center mr-2 text-slate-500"></i> 전체 보기
+                    </a>
+                    <a href="#" data-para="projects" class="mobile-para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg transition-colors text-sm text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-folder-tree w-4 text-center mr-2 text-blue-400"></i> Projects (단기)
+                    </a>
+                    <a href="#" data-para="areas" class="mobile-para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg transition-colors text-sm text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-layer-group w-4 text-center mr-2 text-emerald-400"></i> Areas (영역)
+                    </a>
+                    <a href="#" data-para="resources" class="mobile-para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg transition-colors text-sm text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-book w-4 text-center mr-2 text-amber-400"></i> Resources (자료)
+                    </a>
+                    <a href="#" data-para="archives" class="mobile-para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg transition-colors text-sm text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-box-archive w-4 text-center mr-2 text-slate-500"></i> Archives (보관)
+                    </a>
+                </div>
+            </div>
+            <a href="#" data-view="all-tasks" class="mobile-nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors mt-1">
+                <i class="fa-solid fa-table-list w-5 text-center mr-3 text-cyan-400"></i>
+                <span class="font-medium">전체 업무 리스트</span>
+            </a>
+            <p class="px-3 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 mt-6">바탕화면 실시간 폴더</p>
+            <div id="mobile-sidebar-folders-container" class="space-y-1">
+                <!-- Dynamically populated mobile folders -->
+            </div>
+        </nav>
+        <div class="p-4 border-t border-slate-700 bg-slate-900">
+            <a href="#" data-view="settings" class="mobile-nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors">
+                <i class="fa-solid fa-gear w-5 text-center mr-3 text-slate-400"></i>
+                <span class="font-medium">환경설정</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative">
+        
+        <!-- Top Header (Everything Search Bar & Sync & Notifications) -->
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-10 sticky top-0 shadow-sm flex-shrink-0">
+            <div class="flex items-center flex-1">
+                <!-- Mobile Menu Toggle Button -->
+                <button id="open-mobile-menu" class="md:hidden mr-4 text-slate-500 hover:text-slate-700 p-1" aria-label="메뉴 열기">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+                
+                <!-- Global Search Input -->
+                <div class="relative w-full max-w-2xl group">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-magnifying-glass text-slate-400 group-focus-within:text-blue-500 transition-colors"></i>
+                    </div>
+                    <input type="text" id="searchInput" class="block w-full pl-10 pr-10 py-2 border border-slate-300 rounded-xl leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all shadow-inner" placeholder="바탕화면 파일명, 키워드, 부서명, 확장자 등으로 검색... (예: hwp 실적)">
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                        <span class="text-xs text-slate-400 border border-slate-200 rounded px-1.5 py-0.5 bg-white select-none pointer-events-none">Ctrl + K</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Top Header Actions -->
+            <div class="flex items-center space-x-3 relative">
+                <button id="btn-sync-filesystem" class="text-slate-500 hover:text-blue-600 relative p-2 rounded-lg hover:bg-slate-100 transition-colors flex items-center justify-center" title="바탕화면 실시간 폴더 동기화">
+                    <i class="fa-solid fa-arrows-rotate text-lg"></i>
+                </button>
+                <div class="relative">
+                    <button id="btn-notifications" class="text-slate-400 hover:text-slate-600 relative p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                        <i class="fa-regular fa-bell text-xl"></i>
+                        <span id="unread-dot" class="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white hidden animate-pulse"></span>
+                    </button>
+                    <!-- Notification Dropdown -->
+                    <div id="notification-dropdown" class="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-100 hidden z-50 overflow-hidden">
+                        <div class="px-4 py-3 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                            <h3 class="font-bold text-slate-800 text-sm">알림 센터</h3>
+                            <span class="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold">마감 임박</span>
+                        </div>
+                        <div id="notification-list" class="max-h-80 overflow-y-auto">
+                            <!-- Dynamic Notifications -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Body -->
+        <div id="content-area" class="flex-1 overflow-y-auto p-6 lg:p-8">
+            
+            <!-- 1. DASHBOARD VIEW (Default) -->
+            <section id="view-dashboard" class="view-pane animate-fade-in space-y-6">
+                <!-- Welcome Section -->
+                <div class="flex items-center justify-between mb-2">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-800 flex items-center">
+                            <span id="dashboard-user-greeting">부서별 통합 업무 현황</span>
+                        </h1>
+                        <p class="text-sm text-slate-500 mt-1" id="currentDate">2026년 6월 5일 금요일</p>
+                    </div>
+                    <button id="btn-add-unified-dashboard" class="bg-blue-600 text-white px-4 py-2.5 rounded-xl shadow-lg hover:bg-blue-700 font-semibold text-sm transition-all flex items-center hover:shadow-blue-500/20">
+                        <i class="fa-solid fa-plus mr-2"></i> 새 문서/데이터 추가
+                    </button>
+                </div>
+
+                <!-- Stats Summary Row -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 text-xl"><i class="fa-solid fa-file-invoice"></i></div>
+                        <div>
+                            <p class="text-xs text-slate-500 font-semibold uppercase">데스크탑 파일</p>
+                            <h4 id="stat-files-count" class="text-xl font-bold text-slate-800">0</h4>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 text-xl"><i class="fa-solid fa-address-card"></i></div>
+                        <div>
+                            <p class="text-xs text-slate-500 font-semibold uppercase">명함첩 (WorkCard)</p>
+                            <h4 id="stat-vendors-count" class="text-xl font-bold text-slate-800">0</h4>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 text-xl"><i class="fa-solid fa-folder-tree"></i></div>
+                        <div>
+                            <p class="text-xs text-slate-500 font-semibold uppercase">공유 자료/도면</p>
+                            <h4 id="stat-components-count" class="text-xl font-bold text-slate-800">0</h4>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                        <div class="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 text-xl"><i class="fa-solid fa-list-check"></i></div>
+                        <div>
+                            <p class="text-xs text-slate-500 font-semibold uppercase">진행 업무 카드</p>
+                            <h4 id="stat-orders-value" class="text-xl font-bold text-slate-800">0</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Folders (Shortcut Grid) -->
+                <div>
+                    <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 select-none">자주 찾는 메인 폴더</h2>
+                    <div id="quick-folders-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <!-- Dynamic Folder Shortcuts -->
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Recent Files Table -->
+                    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[420px]">
+                        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-white rounded-t-xl">
+                            <h2 class="text-lg font-bold text-slate-800">최근 수정된 문서 (바탕화면)</h2>
+                            <button id="dashboard-view-all-files" class="text-sm text-blue-600 hover:text-blue-800 font-semibold">전체보기</button>
+                        </div>
+                        <div class="flex-1 overflow-auto p-0">
+                            <table class="w-full text-sm text-left">
+                                <thead class="text-xs text-slate-500 bg-slate-50 sticky top-0 border-b border-slate-100 z-10">
+                                    <tr>
+                                        <th scope="col" class="px-5 py-3 font-semibold">파일명</th>
+                                        <th scope="col" class="px-5 py-3 font-semibold">위치</th>
+                                        <th scope="col" class="px-5 py-3 font-semibold">수정일</th>
+                                        <th scope="col" class="px-5 py-3 font-semibold text-center">작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-files-table-body" class="divide-y divide-slate-100">
+                                    <!-- Dynamic rows from app.js -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Kanban Quick Summary Card -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col h-[420px]">
+                        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-white rounded-t-xl">
+                            <h2 class="text-lg font-bold text-slate-800">부서별 핵심 현황</h2>
+                            <button id="dashboard-go-kanban" class="text-sm text-blue-600 hover:text-blue-800 font-semibold flex items-center">
+                                업무관리 이동 <i class="fa-solid fa-chevron-right text-xs ml-1"></i>
+                            </button>
+                        </div>
+                        <div class="p-4 flex-1 overflow-y-auto space-y-3 bg-slate-50/50" id="dashboard-kanban-summary-container">
+                            <!-- Dynamic summary cards from app.js -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tips Footer -->
+                <div class="mt-8 text-center text-sm text-slate-400 select-none">
+                    <p><i class="fa-solid fa-bolt text-yellow-400 mr-1"></i> 팁: 바탕화면 'JKP_WorkHub_Files' 폴더에서 한글(HWP)이나 엑셀을 추가/수정하면 앱에 바로 나타납니다.</p>
+                </div>
+            </section>
+
+            <!-- 2. INTEGRATED SEARCH VIEW -->
+            <section id="view-search" class="view-pane animate-fade-in space-y-6 hidden">
+                <div class="flex items-center justify-between border-b border-slate-200 pb-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-800">통합 검색 센터</h1>
+                        <p class="text-sm text-slate-500 mt-1">바탕화면의 모든 실제 파일과 사내 공유 자료, 협력사/고객사 DB, 업무 일정을 검색합니다.</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-slate-500">필터:</span>
+                        <select id="search-filter-category" class="bg-white border border-slate-300 rounded-lg text-sm px-3 py-1.5 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="all">전체 카테고리</option>
+                            <option value="files">바탕화면 실제 파일</option>
+                            <option id="filter-opt-vendors" value="vendors">&#47749;&#54632;&#52395; (WorkCard)</option>
+                            <option id="filter-opt-components" value="components">&#44277;&#50976; &#51088;&#47308;&#49892; (&#50577;&#49885;/&#46020;&#47732;)</option>
+                            <option id="filter-opt-orders" value="orders">?꾨줈?앺듃 &amp; ?낅Т 愿由?/option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Search Input In-Page -->
+                <div class="relative max-w-3xl">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-magnifying-glass text-slate-400 text-lg"></i>
+                    </div>
+                    <input type="text" id="searchHubInput" class="block w-full pl-12 pr-10 py-3 border border-slate-300 rounded-xl leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base shadow-sm" placeholder="검색어를 입력하세요 (파일명, 부품코드, 제안서명, 업무담당자 등)...">
+                </div>
+
+                <!-- Search Results Area -->
+                <div class="space-y-6" id="search-results-root">
+                    <!-- Populated dynamically via app.js -->
+                </div>
+            </section>
+
+            <!-- 3. PARTNERS/VENDORS DATABASE VIEW -->
+            <section id="view-vendors" class="view-pane animate-fade-in space-y-6 hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0 border-b border-slate-200 pb-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-800">통합 명함첩 (WorkCard)</h1>
+                        <p class="text-sm text-slate-500 mt-1">사내 조직, 유관 기관, 협력사 및 고객사의 명함을 디지털로 관리합니다.</p>
+                    </div>
+                    <button id="btn-add-vendor" class="bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-lg hover:bg-emerald-700 font-semibold text-sm transition-all flex items-center justify-center hover:shadow-emerald-500/20">
+                        <i class="fa-solid fa-address-card mr-2"></i> 신규 명함 등록
+                    </button>
+                </div>
+
+                <!-- Table Tools -->
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div class="relative w-full sm:max-w-xs">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
+                        </span>
+                        <input type="text" id="vendor-search-input" class="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="거래처명, CEO, 코드 검색...">
+                    </div>
+                </div>
+
+                <!-- Vendors Grid List -->
+                <!-- Use auto-fill to handle card widths, aspect-ratio for standard business card layout handled in app.js -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="vendors-grid-container" style="perspective: 1000px;">
+                    <!-- Loaded dynamically via app.js -->
+                </div>
+            </section>
+
+            <!-- 4. COMPONENTS/DRAWINGS LIBRARY VIEW -->
+            <section id="view-components" class="view-pane animate-fade-in space-y-6 hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0 border-b border-slate-200 pb-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-800">공동 공유 자료실</h1>
+                        <p class="text-sm text-slate-500 mt-1">부서별 공통 표준 양식, 홍보 제안서, 제품 도면 등 자주 활용하는 자산을 공유합니다.</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button id="btn-add-component" class="bg-amber-500 text-white px-4 py-2.5 rounded-xl shadow-lg hover:bg-amber-600 font-semibold text-sm transition-all flex items-center justify-center hover:shadow-amber-500/20">
+                            <i class="fa-solid fa-cloud-arrow-up mr-2"></i> 공유 자료 등록
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Controls: Filter -->
+                <div class="grid grid-cols-1 gap-6">
+                    <div class="space-y-4">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-sm font-semibold text-slate-500">분류별 필터:</span>
+                            <div class="flex space-x-1" id="component-status-filter-bar">
+                                <button data-status="all" class="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-semibold">전체</button>
+                                <button data-status="양식/템플릿" class="px-3 py-1 bg-white hover:bg-slate-100 text-slate-600 rounded-lg border border-slate-200 text-xs font-semibold">양식/템플릿</button>
+                                <button data-status="개발/도면" class="px-3 py-1 bg-white hover:bg-slate-100 text-slate-600 rounded-lg border border-slate-200 text-xs font-semibold">개발/도면</button>
+                                <button data-status="영업/제안서" class="px-3 py-1 bg-white hover:bg-slate-100 text-slate-600 rounded-lg border border-slate-200 text-xs font-semibold">영업/제안서</button>
+                                <button data-status="경영/보고서" class="px-3 py-1 bg-white hover:bg-slate-100 text-slate-600 rounded-lg border border-slate-200 text-xs font-semibold">경영/보고서</button>
+                            </div>
+                        </div>
+
+                        <!-- Components Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="components-grid-container">
+                            <!-- Dynamic from app.js -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. AI PROJECT TASK KANBAN VIEW -->
+            <section id="view-orders" class="view-pane animate-fade-in flex-1 flex flex-col hidden h-full relative overflow-hidden">
+                <!-- AI Smart Capture Header -->
+                <div class="bg-white shadow-sm rounded-xl p-4 flex gap-4 items-center mb-6 border border-slate-200">
+                    <div class="flex-1 max-w-4xl relative flex items-center gap-2">
+                        <form id="quick-capture-form" class="flex-1 relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fa-solid fa-inbox text-blue-500"></i>
+                            </div>
+                            <input 
+                                type="text" 
+                                id="quick-capture-input"
+                                placeholder="지시사항 입력 후 엔터(일반) 또는 우측 AI 버튼 클릭..." 
+                                class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg text-sm transition-all shadow-inner outline-none"
+                            />
+                        </form>
+                        <button 
+                            id="btn-ai-smart-capture"
+                            class="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50 text-white px-4 py-3 rounded-lg text-sm font-medium transition-all shadow-sm whitespace-nowrap min-w-[120px]"
+                        >
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            <span class="hidden sm:inline">AI 자동 분류</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Kanban Columns Container (Horizontal Scrollable) -->
+                <div class="flex-1 overflow-x-auto overflow-y-hidden pb-4">
+                    <div class="flex gap-4 h-full items-start min-w-max">
+                        
+                        <!-- Column 1: Inbox -->
+                        <div class="w-[300px] flex flex-col max-h-full rounded-xl bg-slate-100 border border-slate-200">
+                            <div class="p-3 rounded-t-xl border-b flex items-center justify-between bg-slate-50 text-slate-700 border-slate-200">
+                                <div class="flex items-center gap-2 font-bold text-sm">
+                                    <i class="fa-solid fa-inbox text-slate-500"></i> 수신함 (Inbox)
+                                </div>
+                                <span id="badge-inbox" class="bg-white px-2 py-0.5 rounded text-xs font-bold shadow-sm text-slate-600">0</span>
+                            </div>
+                            <div id="col-inbox" data-status="inbox" class="kanban-column flex-1 overflow-y-auto space-y-3 p-2 min-h-[150px]"></div>
+                        </div>
+
+                        <!-- Column 2: To-Do -->
+                        <div class="w-[300px] flex flex-col max-h-full rounded-xl bg-blue-50/50 border border-blue-100">
+                            <div class="p-3 rounded-t-xl border-b flex items-center justify-between bg-blue-50 text-blue-700 border-blue-200">
+                                <div class="flex items-center gap-2 font-bold text-sm">
+                                    <i class="fa-solid fa-list-check text-blue-500"></i> 실행 대기 (To-Do)
+                                </div>
+                                <span id="badge-todo" class="bg-white px-2 py-0.5 rounded text-xs font-bold shadow-sm text-blue-600">0</span>
+                            </div>
+                            <div id="col-todo" data-status="todo" class="kanban-column flex-1 overflow-y-auto space-y-3 p-2 min-h-[150px]"></div>
+                        </div>
+
+                        <!-- Column 3: In Progress -->
+                        <div class="w-[300px] flex flex-col max-h-full rounded-xl bg-amber-50/50 border border-amber-100">
+                            <div class="p-3 rounded-t-xl border-b flex items-center justify-between bg-amber-50 text-amber-700 border-amber-200">
+                                <div class="flex items-center gap-2 font-bold text-sm">
+                                    <i class="fa-solid fa-play text-amber-500"></i> 진행 중 (Doing)
+                                </div>
+                                <span id="badge-inprogress" class="bg-white px-2 py-0.5 rounded text-xs font-bold shadow-sm text-amber-600">0</span>
+                            </div>
+                            <div id="col-inprogress" data-status="inprogress" class="kanban-column flex-1 overflow-y-auto space-y-3 p-2 min-h-[150px]"></div>
+                        </div>
+
+                        <!-- Column 4: Waiting -->
+                        <div class="w-[300px] flex flex-col max-h-full rounded-xl bg-purple-50/50 border border-purple-100">
+                            <div class="p-3 rounded-t-xl border-b flex items-center justify-between bg-purple-50 text-purple-700 border-purple-200">
+                                <div class="flex items-center gap-2 font-bold text-sm">
+                                    <i class="fa-regular fa-clock text-purple-500"></i> 회신 대기 (Waiting)
+                                </div>
+                                <span id="badge-waiting" class="bg-white px-2 py-0.5 rounded text-xs font-bold shadow-sm text-purple-600">0</span>
+                            </div>
+                            <div id="col-waiting" data-status="waiting" class="kanban-column flex-1 overflow-y-auto space-y-3 p-2 min-h-[150px]"></div>
+                        </div>
+
+                        <!-- Column 5: Done -->
+                        <div class="w-[300px] flex flex-col max-h-full rounded-xl bg-emerald-50/50 border border-emerald-100">
+                            <div class="p-3 rounded-t-xl border-b flex items-center justify-between bg-emerald-50 text-emerald-700 border-emerald-200">
+                                <div class="flex items-center gap-2 font-bold text-sm">
+                                    <i class="fa-solid fa-check-circle text-emerald-500"></i> 완료 (Done)
+                                </div>
+                                <span id="badge-done" class="bg-white px-2 py-0.5 rounded text-xs font-bold shadow-sm text-emerald-600">0</span>
+                            </div>
+                            <div id="col-done" data-status="done" class="kanban-column flex-1 overflow-y-auto space-y-3 p-2 min-h-[150px]"></div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Full-screen Task Detail Modal (Time Tracker Style) -->
+                <div id="task-fullscreen-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+                    <div class="bg-slate-50 w-[95%] h-[95%] sm:w-[90%] sm:h-[90%] rounded-2xl shadow-2xl overflow-hidden flex flex-col transform scale-95 transition-transform duration-300" id="task-fullscreen-content">
+                        
+                        <!-- Header -->
+                        <div class="flex items-center justify-between p-4 border-b border-slate-200 bg-white">
+                            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <i class="fa-solid fa-clock text-blue-500"></i> 타임트래커 (업무 상세)
+                            </h2>
+                            <div class="flex items-center space-x-2">
+                                <button id="btn-fs-task-save" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow hover:bg-blue-700 transition-colors">저장 후 닫기</button>
+                                <button id="btn-close-fs-task" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                                    <i class="fa-solid fa-xmark text-xl"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Content Area -->
+                        <div class="flex flex-1 overflow-hidden">
+                            
+                            <!-- Left: Timeline Tracker UI -->
+                            <div class="flex-1 p-8 flex flex-col overflow-y-auto border-r border-slate-200 bg-slate-50">
+                                <input type="hidden" id="task-detail-id">
+                                
+                                <input 
+                                    id="task-detail-title"
+                                    class="w-full text-3xl font-bold text-slate-800 bg-transparent border-none p-0 focus:ring-0 mb-6 placeholder-slate-300"
+                                    placeholder="작업 제목을 입력하세요..."
+                                />
+                                
+                                <!-- Tracker Input Box -->
+                                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 mb-8 flex items-center focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-300 transition-all">
+                                    <input type="text" id="fs-timeline-input" class="flex-1 border-none bg-transparent outline-none px-3 text-slate-700 placeholder-slate-400" placeholder="어떤 업무를 기록하시나요?">
+                                    <button id="btn-fs-add-timeline" class="bg-slate-200 hover:bg-slate-300 text-slate-600 px-5 py-2.5 rounded-xl font-bold text-sm transition-colors flex items-center gap-2 ml-3">
+                                        <i class="fa-solid fa-plus"></i> 저장
+                                    </button>
+                                </div>
+
+                                <!-- Timeline Section -->
+                                <div>
+                                    <h3 class="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+                                        <i class="fa-regular fa-file-lines text-slate-500"></i> 업무 타임라인
+                                    </h3>
+                                    
+                                    <!-- Timeline Container -->
+                                    <div class="relative pl-3" id="fs-timeline-container">
+                                        <!-- Vertical Line -->
+                                        <div class="absolute left-3 top-2 bottom-0 w-px bg-blue-200"></div>
+                                        
+                                        <div id="fs-timeline-list" class="space-y-6">
+                                            <!-- Dynamic timeline items will be rendered here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Right: Metadata & Files -->
+                            <div class="w-full sm:w-[350px] bg-slate-50 p-6 overflow-y-auto flex flex-col gap-6">
+                                
+                                <!-- Metadata Grid -->
+                                <div class="grid grid-cols-2 gap-x-4 gap-y-3">
+                                    <div>
+                                        <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">현재 상태</label>
+                                        <select id="task-detail-status" class="w-full py-2 px-3 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 outline-none text-slate-700 font-medium">
+                                            <option value="inbox">수신함</option>
+                                            <option value="todo">실행 대기</option>
+                                            <option value="inprogress">진행 중</option>
+                                            <option value="waiting">회신 대기</option>
+                                            <option value="done">완료</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-xs font-bold text-indigo-500 uppercase mb-1 flex items-center gap-1">
+                                            <i class="fa-solid fa-folder-tree"></i> 폴더 분류
+                                        </label>
+                                        <select id="task-detail-folder" class="w-full py-2 px-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-200 outline-none text-indigo-800 font-medium">
+                                            <option value="none">미분류</option>
+                                            <option value="projects">Projects (단기)</option>
+                                            <option value="areas">Areas (영역)</option>
+                                            <option value="resources">Resources (자료)</option>
+                                            <option value="archives">Archives (보관)</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">담당자</label>
+                                        <input type="text" id="task-detail-assignee" class="w-full py-2 px-3 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 outline-none text-slate-700" placeholder="담당자 이름">
+                                    </div>
+
+                                    <div>
+                                        <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">목표 기한</label>
+                                        <input type="date" id="task-detail-delivery" class="w-full py-2 px-3 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-200 outline-none text-slate-700">
+                                    </div>
+                                </div>
+
+                                <!-- Timeline Resources Container -->
+                                <div id="fs-timeline-resources-container" class="mt-2 flex-1 flex flex-col min-h-[200px]">
+                                    <div class="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
+                                        <label class="block text-sm font-bold text-slate-700 flex items-center">
+                                            <i class="fa-solid fa-layer-group text-blue-500 mr-2"></i>타임라인 자료 모아보기
+                                        </label>
+                                    </div>
+                                    <div id="fs-timeline-resources-list" class="flex-1 overflow-y-auto space-y-3">
+                                        <!-- Resource items will be rendered here -->
+                                        <div class="text-xs text-slate-400 text-center py-4">첨부된 자료가 없습니다.</div>
+                                    </div>
+                                </div>
+
+                                <!-- Hidden image uploader for timeline active session -->
+                                <input type="file" id="timeline-image-uploader" accept="image/*" class="hidden">
+
+                                <div class="mt-auto pt-6 border-t border-slate-200">
+                                    <button id="btn-task-delete" class="w-full px-4 py-2 text-sm text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors border border-transparent hover:border-red-200 font-semibold flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-trash-can"></i> 이 작업 삭제
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5.5 ALL TASKS TABLE VIEW -->
+            <section id="view-all-tasks" class="view-pane animate-fade-in space-y-6 hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0 border-b border-slate-200 pb-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-800">전체 업무 리스트</h1>
+                        <p class="text-sm text-slate-500 mt-1">완료된 항목을 포함하여 모든 업무의 기한 및 완료일을 표 형태로 조회합니다.</p>
+                    </div>
+                    <button id="btn-export-csv" class="bg-indigo-600 text-white px-4 py-2.5 rounded-xl shadow-lg hover:bg-indigo-700 font-semibold text-sm transition-all flex items-center justify-center hover:shadow-indigo-500/20">
+                        <i class="fa-solid fa-file-csv mr-2"></i> CSV 다운로드
+                    </button>
+                </div>
+
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div class="relative w-full sm:max-w-xs">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
+                        </span>
+                        <input type="text" id="all-tasks-search" class="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="업무명, 담당자 검색...">
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+                                    <th class="py-2 px-4 font-semibold">업무명 (Title)</th>
+                                    <th class="py-2 px-4 font-semibold">
+                                        <select id="all-tasks-filter-status" class="bg-transparent border-none text-xs uppercase font-semibold text-slate-500 focus:ring-0 cursor-pointer p-0 pr-6 appearance-none">
+                                            <option value="all">상태 (Status) ▾</option>
+                                            <option value="inbox">수신함</option>
+                                            <option value="todo">실행 대기</option>
+                                            <option value="inprogress">진행 중</option>
+                                            <option value="waiting">회신 대기</option>
+                                            <option value="done">완료</option>
+                                        </select>
+                                    </th>
+                                    <th class="py-2 px-4 font-semibold">기한 (Delivery Date)</th>
+                                    <th class="py-2 px-4 font-semibold">완료일 (Completed At)</th>
+                                    <th class="py-2 px-4 font-semibold">
+                                        <select id="all-tasks-filter-assignee" class="bg-transparent border-none text-xs uppercase font-semibold text-slate-500 focus:ring-0 cursor-pointer p-0 pr-6 appearance-none">
+                                            <option value="all">담당자 (Assignee) ▾</option>
+                                        </select>
+                                    </th>
+                                    <th class="py-2 px-4 font-semibold">
+                                        <select id="all-tasks-filter-folder" class="bg-transparent border-none text-xs uppercase font-semibold text-slate-500 focus:ring-0 cursor-pointer p-0 pr-6 appearance-none">
+                                            <option value="all">분류 (PARA) ▾</option>
+                                            <option value="projects">Projects (단기)</option>
+                                            <option value="areas">Areas (영역)</option>
+                                            <option value="resources">Resources (자료)</option>
+                                            <option value="archives">Archives (보관)</option>
+                                            <option value="none">미분류</option>
+                                        </select>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="all-tasks-tbody" class="divide-y divide-slate-100 text-sm text-slate-700">
+                                <!-- Populated dynamically by app.js -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 6. VIRTUAL FOLDER VIEW -->
+            <section id="view-folders" class="view-pane animate-fade-in space-y-6 hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0 border-b border-slate-200 pb-4">
+                    <div>
+                        <div id="folder-breadcrumbs" class="flex items-center space-x-2 text-sm text-slate-500 mb-1 select-none">
+                            <a href="#" id="folder-breadcrumb-root" class="hover:text-blue-600">루트</a>
+                            <span>/</span>
+                            <span id="folder-breadcrumb-active" class="font-semibold text-slate-800">폴더명</span>
+                        </div>
+                        <h1 class="text-2xl font-bold text-slate-800 flex items-center">
+                            <i class="fa-solid fa-folder text-blue-500 mr-3"></i>
+                            <span id="folder-title-display">00_수신함_Inbox</span>
+                        </h1>
+                    </div>
+                    
+                    <div class="flex space-x-2">
+                        <button id="btn-folder-ai-organize" class="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-4 py-2.5 rounded-xl shadow-lg hover:from-purple-600 hover:to-indigo-600 font-bold text-sm transition-all flex items-center justify-center hover:shadow-purple-500/30 border-0">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> AI 스마트 폴더 정리
+                        </button>
+                        <button id="btn-folder-add-subfolder" class="bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center">
+                            <i class="fa-solid fa-folder-plus mr-2 text-blue-500"></i> 새 하위 폴더 생성
+                        </button>
+                        <button id="btn-folder-add-file" class="bg-blue-600 text-white px-4 py-2.5 rounded-xl shadow-lg hover:bg-blue-700 font-semibold text-sm transition-all flex items-center justify-center hover:shadow-blue-500/20">
+                            <i class="fa-solid fa-file-arrow-up mr-2"></i> 이 폴더에 실제 파일 생성
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Subfolders Grid Section -->
+                <div id="subfolders-section" class="hidden">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 select-none">하위 폴더 목록</h3>
+                    <div id="subfolders-list-grid" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <!-- Dynamically populated subfolders -->
+                    </div>
+                </div>
+
+                <h3 id="folder-files-heading" class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 select-none">파일 목록</h3>
+
+                <!-- Files List in Folder -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500 bg-slate-50 border-b border-slate-100">
+                            <tr>
+                                <th scope="col" class="px-6 py-3.5 font-semibold">파일명</th>
+                                <th scope="col" class="px-6 py-3.5 font-semibold">용량</th>
+                                <th scope="col" class="px-6 py-3.5 font-semibold">최종 수정일</th>
+                                <th scope="col" class="px-6 py-3.5 font-semibold">소유자/구분</th>
+                                <th scope="col" class="px-6 py-3.5 font-semibold text-center">동작</th>
+                            </tr>
+                        </thead>
+                        <tbody id="folder-files-table-body" class="divide-y divide-slate-100">
+                            <!-- Dynamic files list from app.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 5. Settings View -->
+            <section id="view-settings" class="view-pane hidden animate-fade-in max-w-4xl mx-auto w-full">
+                <div class="mb-6 lg:mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-2">환경설정 <i class="fa-solid fa-gear text-slate-400 ml-2"></i></h2>
+                    <p class="text-slate-500 text-sm">시스템 동작 및 개인 맞춤 환경을 설정합니다.</p>
+                </div>
+                
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="p-6 md:p-8 space-y-8">
+                        
+                        <!-- AI Settings -->
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                                <i class="fa-solid fa-robot text-blue-600 w-6 text-center mr-2"></i> AI 연동 설정
+                            </h3>
+                            <div class="space-y-3 pl-8">
+                                <div class="flex items-center justify-between">
+                                    <label class="block text-sm font-semibold text-slate-700">Gemini API Key</label>
+                                    <span id="status-api-key" class="text-xs font-bold px-2 py-1 rounded bg-slate-100 text-slate-500">비워있음</span>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <input type="password" id="setting-api-key" class="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 focus:bg-white transition-all" placeholder="AIzaSy...">
+                                    <button id="btn-clear-api-key" class="px-4 py-2 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors text-sm">해제</button>
+                                </div>
+                                <p class="text-xs text-slate-500">Google Gemini API 키를 입력하세요. 개인 키를 사용해야 정보가 유출되지 않습니다.</p>
+                            </div>
+                        </div>
+                        
+                        <hr class="border-slate-100">
+
+                        <!-- AI Persona Settings -->
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                                <i class="fa-solid fa-user-astronaut text-purple-500 w-6 text-center mr-2"></i> AI 업무 구체화 페르소나 (선택)
+                            </h3>
+                            <div class="space-y-3 pl-8">
+                                <label class="block text-sm font-semibold text-slate-700">추가 지시사항 및 맥락</label>
+                                <div class="flex space-x-2">
+                                    <textarea id="setting-ai-context" rows="3" class="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-slate-50 focus:bg-white transition-all" placeholder="예: '당신은 디자인 에이전시의 꼼꼼한 PM입니다. 항상 한국어 경어체를 사용하고 요약된 불릿포인트를 즐겨 씁니다.'"></textarea>
+                                    <button id="btn-clear-ai-context" class="px-4 py-2 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors text-sm self-start">해제</button>
+                                </div>
+                                <p class="text-xs text-slate-500">작업 상세 화면에서 'AI로 내용 구체화' 버튼을 누를 때, AI에게 추가로 부여할 역할이나 특수 지시사항을 입력해두면 항상 적용됩니다.</p>
+                            </div>
+                        </div>
+
+                        <hr class="border-slate-100">
+
+                        <!-- Menu Naming Settings -->
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                                <i class="fa-solid fa-pen-to-square text-indigo-500 w-6 text-center mr-2"></i> 메뉴 및 카드 이름 설정 (UI 수정)
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pl-8">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">대시보드</label>
+                                    <input type="text" id="setting-name-dashboard" class="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white transition-all" placeholder="대시보드">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">통합 검색 (Everything)</label>
+                                    <input type="text" id="setting-name-search" class="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white transition-all" placeholder="통합 검색 (Everything)">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">명함첩 (WorkCard)</label>
+                                    <input type="text" id="setting-name-vendors" class="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white transition-all" placeholder="명함첩 (WorkCard)">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">공유 자료실 (양식/도면)</label>
+                                    <input type="text" id="setting-name-components" class="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white transition-all" placeholder="공유 자료실 (양식/도면)">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">프로젝트 & 업무 관리</label>
+                                    <input type="text" id="setting-name-orders" class="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white transition-all" placeholder="프로젝트 & 업무 관리">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">전체 업무 리스트</label>
+                                    <input type="text" id="setting-name-all-tasks" class="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-slate-50 focus:bg-white transition-all" placeholder="전체 업무 리스트">
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="border-slate-100">
+
+                        <!-- Folder Sync Settings -->
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                                <i class="fa-solid fa-folder-tree text-amber-500 w-6 text-center mr-2"></i> 로컬 폴더 연동 설정
+                            </h3>
+                            <div class="space-y-3 pl-8">
+                                <div class="flex items-center justify-between">
+                                    <label class="block text-sm font-semibold text-slate-700">바탕화면 실시간 폴더 경로</label>
+                                    <span id="status-sync-path" class="text-xs font-bold px-2 py-1 rounded bg-slate-100 text-slate-500">비워있음</span>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <input type="text" id="setting-sync-path" class="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50 focus:bg-white transition-all" placeholder="C:\\Users\\...\\Desktop\\JKP_WorkHub_Files">
+                                    <button id="btn-clear-sync-path" class="px-4 py-2 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors text-sm">해제</button>
+                                </div>
+                                <p class="text-xs text-slate-500">다른 PC나 USB에서 구동 시, 실제 파일이 저장될 절대 경로를 지정하세요. (예: E:\\JKP_WorkHub_Files)</p>
+                            </div>
+                        </div>
+
+                        <hr class="border-slate-100">
+
+                        <!-- Database Custom Paths Settings -->
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center">
+                                <i class="fa-solid fa-database text-rose-500 w-6 text-center mr-2"></i> 데이터베이스 저장 경로 설정 (공유/분리)
+                            </h3>
+                            <div class="space-y-4 pl-8">
+                                <div>
+                                    <div class="flex items-center justify-between mb-1.5">
+                                        <label class="block text-sm font-semibold text-slate-700">업무관리 및 공유 자료실 데이터베이스 경로</label>
+                                        <span id="status-db-tasks" class="text-xs font-bold px-2 py-1 rounded bg-slate-100 text-slate-500">기본값 (로컬)</span>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <input type="text" id="setting-db-tasks" class="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-slate-50 focus:bg-white transition-all" placeholder="비워둘 경우 기본 로컬 DB 사용 (예: Z:\공유폴더\tasks.sqlite)">
+                                        <button id="btn-clear-db-tasks" class="px-4 py-2 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors text-sm">해제</button>
+                                    </div>
+                                    <p class="text-xs text-slate-500 mt-1">업무 및 공유자료 데이터를 사내 공유망에 연동하려면 네트워크 드라이브나 공유 폴더 내 파일 경로를 입력하세요.</p>
+                                </div>
+                                
+                                <div>
+                                    <div class="flex items-center justify-between mb-1.5">
+                                        <label class="block text-sm font-semibold text-slate-700">명함첩 (WorkCard) 데이터베이스 경로</label>
+                                        <span id="status-db-workcards" class="text-xs font-bold px-2 py-1 rounded bg-slate-100 text-slate-500">기본값 (로컬)</span>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <input type="text" id="setting-db-workcards" class="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-slate-50 focus:bg-white transition-all" placeholder="비워둘 경우 기본 로컬 DB 사용 (예: Z:\공유폴더\workcards.sqlite)">
+                                        <button id="btn-clear-db-workcards" class="px-4 py-2 bg-red-50 text-red-600 font-semibold rounded-xl hover:bg-red-100 transition-colors text-sm">해제</button>
+                                    </div>
+                                    <p class="text-xs text-slate-500 mt-1">명함첩 데이터만 동료들과 공유해 함께 쓰려면, 공유망 드라이브의 SQLite 파일 경로를 입력하세요.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="bg-slate-50 p-6 border-t border-slate-100 flex justify-end">
+                        <button id="btn-save-settings" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-xl transition-colors shadow-sm shadow-blue-600/30">
+                            설정 저장하기
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 업데이트 섹션 -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mt-6">
+                    <div class="p-6 md:p-8">
+                        <h3 class="text-lg font-bold text-slate-800 mb-1 flex items-center">
+                            <i class="fa-solid fa-rotate text-emerald-500 w-6 text-center mr-2"></i> 앱 업데이트
+                        </h3>
+                        <p class="text-slate-500 text-sm mb-6 pl-8">GitHub에서 새 버전이 있으면 업데이트하거나 이전 버전으로 롤백할 수 있습니다.</p>
+
+                        <!-- 현재 버전 + 확인 버튼 -->
+                        <div class="pl-8 space-y-4">
+                            <div class="flex items-center justify-between flex-wrap gap-3">
+                                <div>
+                                    <p class="text-sm text-slate-500">현재 버전</p>
+                                    <p id="update-local-version" class="text-xl font-bold text-slate-800">로딩 중...</p>
+                                </div>
+                                <button id="btn-check-update" class="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors shadow-sm text-sm">
+                                    <i class="fa-solid fa-magnifying-glass"></i> 새 버전 확인
+                                </button>
+                            </div>
+
+                            <!-- 업데이트 결과 패널 (기본 숨김) -->
+                            <div id="update-result-panel" class="hidden">
+                                <!-- 최신 버전임 -->
+                                <div id="update-up-to-date" class="hidden flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700">
+                                    <i class="fa-solid fa-circle-check text-emerald-500 text-lg"></i>
+                                    <span>현재 최신 버전입니다!</span>
+                                </div>
+
+                                <!-- 새 버전 있음 -->
+                                <div id="update-available-panel" class="hidden space-y-3">
+                                    <div class="flex items-center justify-between flex-wrap gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                                        <div>
+                                            <p class="text-sm font-bold text-blue-700">🎉 새 버전 사용 가능!</p>
+                                            <p id="update-remote-version-text" class="text-xs text-blue-600 mt-0.5"></p>
+                                        </div>
+                                        <button id="btn-do-update" class="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors text-sm shadow-sm">
+                                            <i class="fa-solid fa-download"></i> 업데이트 하기
+                                        </button>
+                                    </div>
+                                    <!-- 릴리즈 노트 -->
+                                    <div id="update-release-notes-box" class="hidden p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                                        <p class="text-xs font-bold text-slate-500 mb-2 uppercase">변경사항 (릴리즈 노트)</p>
+                                        <pre id="update-release-notes-text" class="text-sm text-slate-700 whitespace-pre-wrap font-sans"></pre>
+                                    </div>
+                                </div>
+
+                                <!-- 오류 메시지 -->
+                                <div id="update-error-panel" class="hidden flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                                    <i class="fa-solid fa-triangle-exclamation text-red-500 text-lg"></i>
+                                    <span id="update-error-text"></span>
+                                </div>
+                            </div>
+
+                            <!-- 업데이트 진행 표시 -->
+                            <div id="update-progress-panel" class="hidden p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                                <div class="flex items-center gap-3">
+                                    <div class="animate-spin w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full flex-shrink-0"></div>
+                                    <span id="update-progress-text" class="text-sm text-amber-700 font-semibold">업데이트 준비 중...</span>
+                                </div>
+                                <p class="text-xs text-amber-600 mt-2 pl-8">다운로드 및 파일 교체 중입니다. 잠시 기다려주세요...</p>
+                            </div>
+                        </div>
+
+                        <!-- 구분선 -->
+                        <hr class="border-slate-100 my-6">
+
+                        <!-- 롤백 섹션 -->
+                        <div class="pl-8">
+                            <div class="flex items-center justify-between mb-3">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-700">이전 버전으로 롤백</p>
+                                    <p class="text-xs text-slate-400">업데이트 시 자동으로 백업된 이전 버전 목록입니다.</p>
+                                </div>
+                                <button id="btn-load-backups" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold rounded-xl transition-colors text-sm">
+                                    <i class="fa-solid fa-clock-rotate-left"></i> 백업 목록 보기
+                                </button>
+                            </div>
+                            <div id="backup-list" class="space-y-2 hidden"></div>
+                            <div id="backup-empty" class="hidden text-sm text-slate-400 text-center py-4">
+                                <i class="fa-solid fa-box-open text-slate-300 text-2xl mb-2 block"></i>
+                                저장된 백업이 없습니다.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- ==================== DIALOG MODALS ==================== -->
+
+    <!-- Modal Backdrop -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/60 z-40 hidden flex items-center justify-center p-4 overflow-y-auto">
+        
+        <!-- 1. UNIFIED ADD MODAL -->
+        <div id="modal-add-unified" class="glass-modal rounded-2xl w-full max-w-md shadow-2xl p-6 relative hidden animate-slide-up transform">
+            <button class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 modal-close-btn"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-slate-900 mb-2">새 항목 추가</h2>
+            <p class="text-sm text-slate-500 mb-6">등록하려는 정보 유형을 골라주세요.</p>
+            
+            <div class="grid grid-cols-1 gap-3">
+                <button id="add-opt-file" class="flex items-center p-4 rounded-xl border border-slate-200 bg-white hover:border-blue-500 hover:bg-blue-50/30 text-left transition-all group">
+                    <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-lg mr-4 group-hover:scale-110 transition-transform"><i class="fa-solid fa-file-arrow-up"></i></div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-sm">바탕화면에 새 물리 파일 생성</h4>
+                        <p class="text-xs text-slate-400 mt-0.5">원하는 가상 폴더 경로에 엑셀/한글 파일을 즉시 만듭니다.</p>
+                    </div>
+                </button>
+                <button id="add-opt-vendor" class="flex items-center p-4 rounded-xl border border-slate-200 bg-white hover:border-emerald-500 hover:bg-emerald-50/30 text-left transition-all group">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg mr-4 group-hover:scale-110 transition-transform"><i class="fa-solid fa-address-book"></i></div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-sm">사내 협력사 / 고객사(거래처) 등록</h4>
+                        <p class="text-xs text-slate-400 mt-0.5">거래 중인 바이어나 원자재 제조사의 정보를 관리합니다.</p>
+                    </div>
+                </button>
+                <button id="add-opt-component" class="flex items-center p-4 rounded-xl border border-slate-200 bg-white hover:border-amber-500 hover:bg-amber-50/30 text-left transition-all group">
+                    <div class="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-lg mr-4 group-hover:scale-110 transition-transform"><i class="fa-solid fa-folder-open"></i></div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-sm">사내 공유 자산 및 도면 등록</h4>
+                        <p class="text-xs text-slate-400 mt-0.5">부서별 공문서 양식이나 규격 제안서를 목록에 추가합니다.</p>
+                    </div>
+                </button>
+                <button id="add-opt-order" class="flex items-center p-4 rounded-xl border border-slate-200 bg-white hover:border-purple-500 hover:bg-purple-50/30 text-left transition-all group">
+                    <div class="w-10 h-10 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-lg mr-4 group-hover:scale-110 transition-transform"><i class="fa-solid fa-list-check"></i></div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 text-sm">부서별 프로젝트 업무 카드 생성</h4>
+                        <p class="text-xs text-slate-400 mt-0.5">칸반보드 내에서 팀원들이 트래킹할 중요 테스크를 올립니다.</p>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. VENDOR FORM MODAL -->
+        <div id="modal-vendor-form" class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 relative hidden animate-slide-up transform">
+            <button class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 modal-close-btn"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-slate-900 mb-2" id="vendor-modal-title">신규 명함 등록</h2>
+            <p class="text-sm text-slate-500 mb-2">사내 거래처 및 외부 연락처 정보를 입력합니다.</p>
+            <div id="vendor-paste-area" class="border-2 border-dashed border-emerald-300 bg-emerald-50 rounded-xl p-4 text-center mb-6 cursor-pointer hover:bg-emerald-100 transition-colors" tabindex="0">
+                <i class="fa-solid fa-clipboard-list text-2xl text-emerald-500 mb-2"></i>
+                <p class="text-sm font-semibold text-emerald-700">이곳을 클릭한 후 <kbd class="bg-white border border-emerald-200 rounded px-1 text-emerald-600">Ctrl</kbd> + <kbd class="bg-white border border-emerald-200 rounded px-1 text-emerald-600">V</kbd> 를 눌러 명함 스크린샷을 붙여넣으세요!</p>
+                <p class="text-xs text-emerald-500 mt-1">AI가 텍스트를 자동으로 인식합니다.</p>
+                <img id="vendor-image-preview" src="" class="mx-auto mt-3 max-h-32 rounded shadow-sm hidden" alt="명함 미리보기">
+            </div>
+            
+            <form id="vendor-form" class="space-y-4 max-h-[50vh] overflow-y-auto px-1">
+                <input type="hidden" id="vendor-id-field">
+                
+                <h3 class="text-sm font-bold text-slate-700 border-b pb-1 mt-2 mb-3"><i class="fa-solid fa-address-card mr-1 text-emerald-500"></i> 명함 인쇄 정보 (기본)</h3>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="v-name" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">이름(성명) *</label>
+                        <input type="text" id="v-name" required class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label for="v-company" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">회사명/소속 *</label>
+                        <input type="text" id="v-company" required class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="v-position" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">부서 및 직책</label>
+                        <input type="text" id="v-position" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label for="v-email" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">이메일 주소</label>
+                        <input type="email" id="v-email" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="v-mobile" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">휴대폰 번호 *</label>
+                        <input type="text" id="v-mobile" required placeholder="010-0000-0000" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label for="v-phone" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">유선 전화번호</label>
+                        <input type="text" id="v-phone" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="v-fax" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">팩스 번호</label>
+                        <input type="text" id="v-fax" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label for="v-website" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">웹사이트 URL</label>
+                        <input type="text" id="v-website" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="v-address" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">회사 주소</label>
+                    <input type="text" id="v-address" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+                <div>
+                    <label for="v-sns" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">SNS 계정 (링크드인, 카카오톡 등)</label>
+                    <input type="text" id="v-sns" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+
+                <h3 class="text-sm font-bold text-slate-700 border-b pb-1 mt-6 mb-3"><i class="fa-solid fa-server mr-1 text-blue-500"></i> 내부 관리용 정보 (시스템)</h3>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="v-relationship" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">인맥 관계 (분류)</label>
+                        <select id="v-relationship" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="고객사">고객사 (Client)</option>
+                            <option value="협력사">협력사 (Partner)</option>
+                            <option value="잠재고객">잠재고객 (Lead)</option>
+                            <option value="사내직원">사내직원 (Internal)</option>
+                            <option value="유관기관">유관기관 (Gov/Org)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="v-rating" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">중요도 별점</label>
+                        <select id="v-rating" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="5">⭐⭐⭐⭐⭐ (VIP)</option>
+                            <option value="4">⭐⭐⭐⭐ (중요)</option>
+                            <option value="3" selected>⭐⭐⭐ (보통)</option>
+                            <option value="2">⭐⭐ (낮음)</option>
+                            <option value="1">⭐ (참고용)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="v-tags" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">해시태그 / 그룹 (콤마로 구분)</label>
+                    <input type="text" id="v-tags" placeholder="예: #2026_전시회, #단가최저, #긴급연락" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label for="v-location" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">만남 장소 / 계기</label>
+                    <input type="text" id="v-location" placeholder="어디서 어떻게 만났는지 간략한 메모" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label for="v-memo" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">미팅 메모 / 특이사항</label>
+                    <textarea id="v-memo" rows="2" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                </div>
+
+                <div class="flex items-center mt-2">
+                    <input type="checkbox" id="v-shared" class="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500" checked>
+                    <label for="v-shared" class="ml-2 block text-sm text-slate-700 font-medium">팀원들과 명함 정보를 공유합니다.</label>
+                </div>
+
+                <div class="pt-4 flex justify-end space-x-3 border-t">
+                    <button type="button" class="modal-close-btn px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">취소</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold shadow hover:bg-emerald-700 transition-colors">저장하기</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 3. COMPONENT FORM MODAL -->
+        <div id="modal-component-form" class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 relative hidden animate-slide-up transform">
+            <button class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 modal-close-btn"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-slate-900 mb-2">공유 자료 및 사내 템플릿 등록</h2>
+            <p class="text-sm text-slate-500 mb-6">부서에서 공동으로 사용할 중요 양식이나 설계 자료를 등록합니다.</p>
+            
+            <form id="component-form" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="c-name" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">자료 명칭 *</label>
+                        <input type="text" id="c-name" required class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="c-partNumber" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">자산 식별 코드 *</label>
+                        <input type="text" id="c-partNumber" required placeholder="예: FORM-HR-01" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="c-drawingNumber" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">사내 관리 번호 *</label>
+                        <input type="text" id="c-drawingNumber" required placeholder="예: DOC-2026-001" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="c-material" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">파일 형식</label>
+                        <input type="text" id="c-material" placeholder="예: hwp, xlsx, pdf" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="c-ownerName" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">담당 팀 / 담당자 *</label>
+                        <input type="text" id="c-ownerName" required placeholder="예: 인사총무팀 (이인사)" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="c-category" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">분류 범주</label>
+                        <select id="c-category" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="양식/템플릿">양식/템플릿 (인사/회계/공통)</option>
+                            <option value="개발/도면">개발/도면 (설계/R&D)</option>
+                            <option value="영업/제안서">영업/제안서 (제안서/바이어)</option>
+                            <option value="경영/보고서">경영/보고서 (실적/기획)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="c-desc" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">상세 용도 및 설명</label>
+                    <textarea id="c-desc" rows="3" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="결재 경로, 작성 시 필수 준수 사항 등 요약..."></textarea>
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-4 border-t border-slate-100">
+                    <button type="button" class="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm hover:bg-slate-50 modal-close-btn">취소</button>
+                    <button type="submit" class="px-5 py-2 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600">등록 완료</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 4. ORDER FORM MODAL (KANBAN CARD) -->
+        <div id="modal-order-form" class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 relative hidden animate-slide-up transform max-h-[90vh] overflow-y-auto">
+            <button class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 modal-close-btn"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-slate-900 mb-2" id="order-modal-title">신규 업무 카드 생성</h2>
+            <p class="text-sm text-slate-500 mb-4">부서 칸반보드에 중요 프로젝트 및 테스크 일정을 등록합니다.</p>
+            
+            <form id="order-form" class="space-y-3">
+                <input type="hidden" id="order-id-field">
+                
+                <!-- AI Assistant Section -->
+                <div class="bg-purple-50 rounded-xl p-4 border border-purple-200 mb-2">
+                    <label for="ai-task-input" class="block text-xs font-bold text-purple-700 mb-1.5 uppercase flex items-center">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-1.5"></i> AI 스마트 업무 등록
+                    </label>
+                    <textarea id="ai-task-input" rows="2" class="w-full text-sm border border-purple-300 rounded-lg px-3 py-2 focus:ring-purple-500 focus:border-purple-500 bg-white placeholder-purple-300" placeholder="예: 내일 모레까지 영업팀 김과장에게 신규 고객사 리스트 정리해서 보고하라고 해. 긴급건임."></textarea>
+                    <div class="flex justify-end mt-2">
+                        <button type="button" id="btn-ai-summarize" class="px-4 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700 flex items-center shadow-sm transition-all">
+                            <i class="fa-solid fa-robot mr-1.5"></i> AI로 내용 자동 채우기
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="o-title" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">업무 명칭 / 건명 *</label>
+                    <input type="text" id="o-title" required placeholder="예: 신규 사원 채용 계획 보고안 작성" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="o-department" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">담당 부서 *</label>
+                        <select id="o-department" required class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="공통">공통 (전사)</option>
+                            <option value="인사총무팀">인사총무팀</option>
+                            <option value="영업팀">영업팀</option>
+                            <option value="개발팀">개발팀</option>
+                            <option value="구매팀">구매팀</option>
+                            <option value="경영지원">경영지원</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="o-assignee" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">담당 실무자 *</label>
+                        <input type="text" id="o-assignee" required placeholder="예: 이인사 대리" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="o-delivery" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">마감 기한(Due Date)</label>
+                        <input type="date" id="o-delivery" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="o-priority" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">우선순위</label>
+                        <select id="o-priority" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="보통">보통</option>
+                            <option value="긴급">긴급(D-3이내)</option>
+                            <option value="낮음">낮음</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label for="o-amount" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">예산/금액(원)</label>
+                        <input type="number" id="o-amount" min="0" value="0" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="o-items" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">관련 파일 수</label>
+                        <input type="number" id="o-items" min="0" value="1" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="o-status" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">초기 진행 단계</label>
+                        <select id="o-status" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="pending_approval">진행 대기 (To Do)</option>
+                            <option value="in_progress">진행중 (In Progress)</option>
+                            <option value="completed">완료됨 (Done)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="o-desc" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">업무 내용 요약 및 기재사항</label>
+                    <textarea id="o-desc" rows="3" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="필요 산출물이나 협조 부서 등 자유 기입..."></textarea>
+                </div>
+
+                
+
+                <div class="flex justify-end space-x-2 pt-4 border-t border-slate-100">
+                    <button type="button" class="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm hover:bg-slate-50 modal-close-btn">취소</button>
+                    <button type="submit" class="px-5 py-2 bg-purple-600 text-white rounded-xl text-sm font-semibold hover:bg-purple-700">저장 완료</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 6. FILE/DOCUMENT UPLOAD & DETAIL DIALOG -->
+        <div id="modal-file-detail" class="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 relative hidden animate-slide-up transform">
+            <button class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 modal-close-btn"><i class="fa-solid fa-xmark text-xl"></i></button>
+            
+            <div class="text-center pb-4 border-b border-slate-100">
+                <div id="fd-icon-container" class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto text-4xl mb-3">
+                    <!-- Icon from javascript -->
+                </div>
+                <h3 id="fd-name" class="font-bold text-slate-800 text-lg px-4 break-words">파일명</h3>
+                <p id="fd-folder-badge" class="inline-block px-2.5 py-0.5 mt-2 bg-slate-100 text-slate-500 text-xs font-semibold rounded-full border border-slate-200">폴더</p>
+            </div>
+
+            <div class="py-4 space-y-3 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-400 font-medium">크기/용량</span>
+                    <span id="fd-size" class="text-slate-800 font-semibold">0 KB</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400 font-medium">최종 수정일</span>
+                    <span id="fd-modified-at" class="text-slate-800 font-semibold">날짜</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400 font-medium">소유자/동기화</span>
+                    <span id="fd-modified-by" class="text-slate-800 font-semibold">담당자</span>
+                </div>
+                <div class="flex justify-between items-start">
+                    <span class="text-slate-400 font-medium">실제 경로(Path)</span>
+                    <span id="fd-path" class="text-slate-800 font-semibold text-right break-all max-w-[240px]">C:/Desktop/JKP_WorkHub_Files/folder</span>
+                </div>
+                <div>
+                    <span class="text-slate-400 font-medium block mb-1.5">인덱스 검색 태그</span>
+                    <div id="fd-tags" class="flex flex-wrap gap-1">
+                        <!-- Dynamic tags -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Virtual Preview Window (Aesthetic Wow Factor) -->
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs font-mono text-slate-600 max-h-40 overflow-y-auto mb-5 select-none">
+                <div class="text-[10px] text-slate-400 mb-1 flex items-center justify-between font-sans">
+                    <span><i class="fa-solid fa-eye mr-1"></i> 실제 파일 본문/미리보기 내용</span>
+                    <span class="px-1 bg-slate-200 rounded text-[9px] scale-90">인덱스됨</span>
+                </div>
+                <div id="fd-preview-content">
+                    Loading preview contents...
+                </div>
+            </div>
+
+            <div class="flex justify-between space-x-2 pt-4 border-t border-slate-100">
+                <button type="button" id="fd-btn-delete" class="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-xl text-sm font-semibold hover:bg-red-100 transition-colors">
+                    실제 파일 삭제
+                </button>
+                <div class="flex space-x-2">
+                    <button type="button" class="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm hover:bg-slate-50 modal-close-btn">닫기</button>
+                    <button type="button" id="fd-btn-download" class="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 flex items-center">
+                        <i class="fa-solid fa-external-link mr-1.5"></i> 열기
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. NEW FILE UPLOAD MODAL -->
+        <div id="modal-file-upload-form" class="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 relative hidden animate-slide-up transform">
+            <button class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 modal-close-btn"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-slate-900 mb-2">바탕화면에 새 파일 생성</h2>
+            <p class="text-sm text-slate-500 mb-6">등록할 위치와 파일명(한글/엑셀 등)을 지정하면 PC 폴더에 실제 파일이 즉시 생성됩니다.</p>
+            
+            <form id="file-upload-form" class="space-y-4">
+                <div>
+                    <label for="uf-name" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">생성할 파일명 *</label>
+                    <input type="text" id="uf-name" required placeholder="예: 260605_주간보고서.hwp" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="uf-folder" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">저장 가상 폴더 *</label>
+                        <select id="uf-folder" required class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                            <!-- Populated from folder lists -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="uf-content" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">초기 문서 간략 내용</label>
+                        <input type="text" id="uf-content" placeholder="예: 주간 실적 보고 양식 기재" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="uf-tags" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">검색용 인덱스 태그 (쉼표로 구분)</label>
+                    <input type="text" id="uf-tags" placeholder="보고서, 주간, 2분기" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div class="flex justify-end space-x-2 pt-4 border-t border-slate-100">
+                    <button type="button" class="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm hover:bg-slate-50 modal-close-btn">취소</button>
+                    <button type="submit" class="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">실제 파일 생성</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 7. FOLDER RENAME MODAL -->
+        <div id="modal-folder-rename" class="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 relative hidden animate-slide-up transform z-[60]">
+            <button class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 modal-close-btn"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-slate-900 mb-2">폴더 이름 변경</h2>
+            <p class="text-sm text-slate-500 mb-6">폴더명을 변경합니다. 실제 PC 바탕화면의 폴더 이름이 변경됩니다.</p>
+            
+            <form id="folder-rename-form" class="space-y-4">
+                <input type="hidden" id="fr-parent-path">
+                <input type="hidden" id="fr-old-name">
+                <div>
+                    <label for="fr-new-name" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">새 폴더명 *</label>
+                    <input type="text" id="fr-new-name" required class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500" placeholder="새 폴더명을 입력하세요">
+                </div>
+                <div class="flex justify-end space-x-2 pt-4 border-t border-slate-100">
+                    <button type="button" class="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm hover:bg-slate-50 modal-close-btn">취소</button>
+                    <button type="submit" class="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">이름 변경</button>
+                </div>
+            </form>
+        </div>
+
+    <!-- ==================== MODAL: AI FILE SYSTEM AGENT ==================== -->
+    <div id="modal-ai-organize" class="modal fixed inset-0 z-50 hidden flex-col items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onclick="closeModal('modal-ai-organize')"></div>
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg z-10 overflow-hidden flex flex-col animate-slide-up" id="modal-ai-organize-content">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center">
+                    <i class="fa-solid fa-wand-magic-sparkles text-purple-500 mr-2"></i>
+                    AI 만능 파일/폴더 비서
+                </h3>
+                <button onclick="closeModal('modal-ai-organize')" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 flex-1 overflow-y-auto">
+                <p class="text-sm text-slate-500 mb-4">
+                    현재 화면에 보이는 파일들을 분류하거나, 새로운 폴더 및 파일을 생성하도록 AI에게 자연어로 지시해 주세요.
+                </p>
+                <div class="mb-4">
+                    <label class="block text-xs font-semibold text-slate-500 mb-2">AI 지시사항 입력</label>
+                    <textarea id="ai-organize-prompt" rows="4" 
+                        class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm"
+                        placeholder="예: 구매팀 폴더 만들고 그 안에 구매발주서.docx 파일 만들어줘. 그리고 기존 영수증 파일들은 모두 영수증 폴더로 이동시켜."></textarea>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                <button onclick="closeModal('modal-ai-organize')" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200 transition-colors">
+                    취소
+                </button>
+                <button id="btn-submit-ai-organize" class="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-purple-500 hover:bg-purple-600 transition-colors flex items-center shadow-sm">
+                    <i class="fa-solid fa-play mr-2 text-xs"></i>
+                    실행 시작
+                </button>
+            </div>
+        </div>
+    </div>
+
+        <!-- 8. FILE/FOLDER PICKER MODAL -->
+        <div id="modal-file-picker" class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 relative hidden animate-slide-up transform z-50">
+            <button class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 modal-close-btn"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-slate-900 mb-2">기존 자료 연동하기</h2>
+            <p class="text-sm text-slate-500 mb-4">현재 시스템에 등록된 폴더나 파일을 선택하여 업무 카드에 연결합니다.</p>
+            
+            <!-- SEARCH INPUT FOR FILE PICKER -->
+            <div class="mb-3">
+                <div class="relative">
+                    <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-400 text-sm"></i>
+                    <input type="text" id="picker-search-input" placeholder="폴더 및 파일 이름 검색..." class="w-full text-sm border border-slate-300 rounded-lg pl-9 pr-3 py-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50">
+                </div>
+            </div>
+
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 h-64 overflow-y-auto mb-4">
+                <ul id="picker-tree" class="space-y-1 text-sm text-slate-700">
+                    <!-- Dynamic Tree Items -->
+                </ul>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-4 border-t border-slate-100">
+                <button type="button" class="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm hover:bg-slate-50 modal-close-btn">취소</button>
+                <button type="button" id="btn-picker-confirm" class="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">선택 완료</button>
+            </div>
+        </div>
+
+        <!-- 9. AI SMART FOLDER ORGANIZE MODAL -->
+        <div id="modal-ai-organize" class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 relative hidden animate-slide-up transform z-50">
+            <button class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 modal-close-btn"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-slate-900 mb-2"><i class="fa-solid fa-wand-magic-sparkles text-purple-500 mr-2"></i>AI 스마트 폴더 정리</h2>
+            <p class="text-sm text-slate-500 mb-4">현재 화면에 보이는 파일들을 어떻게 폴더로 나누어 정리할지 AI에게 자연어로 지시해 주세요.</p>
+            
+            <div class="mb-4">
+                <label for="ai-organize-prompt" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">AI 지시사항 입력</label>
+                <textarea id="ai-organize-prompt" rows="3" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-purple-500 focus:border-purple-500" placeholder="예: '파일명에 포함된 날짜를 기준으로 월별 폴더를 만들어줘', '확장자가 pdf인 것과 xlsx인 것을 각각의 폴더로 분류해줘'"></textarea>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-4 border-t border-slate-100">
+                <button type="button" class="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm hover:bg-slate-50 modal-close-btn">취소</button>
+                <button type="button" id="btn-submit-ai-organize" class="px-5 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl text-sm font-semibold hover:from-purple-600 hover:to-indigo-600 transition-all flex items-center">
+                    <i class="fa-solid fa-play mr-2"></i> 정리 시작
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== MODAL: WELCOME SETUP WIZARD ==================== -->
+        <div id="modal-welcome-setup" class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-8 relative hidden animate-slide-up transform border border-slate-100 z-50">
+            <div class="text-center pb-4 border-b border-slate-100">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-500 to-purple-600 text-white flex items-center justify-center mx-auto text-3xl mb-4 shadow-md shadow-blue-500/20 animate-bounce">
+                    <i class="fa-solid fa-rocket"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-800">JKP WorkHub에 오신 것을 환영합니다!</h2>
+                <p class="text-sm text-slate-500 mt-1">시스템을 시작하기 위해 필요한 기본 환경을 설정해 주세요.</p>
+            </div>
+
+            <form id="welcome-setup-form" class="space-y-5 py-6">
+                <!-- Desktop Sync Path input -->
+                <div>
+                    <label for="ws-sync-path" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase flex items-center justify-between">
+                        <span>바탕화면 실시간 폴더 경로 *</span>
+                        <span class="text-[10px] text-blue-500 font-semibold normal-case">자동 감지됨</span>
+                    </label>
+                    <input type="text" id="ws-sync-path" required class="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" placeholder="예: C:\Users\YourName\Desktop\JKP_WorkHub_Files">
+                    <p class="text-[11px] text-slate-400 mt-1.5">실제 파일이 생성되고 실시간 동기화될 로컬 절대 경로입니다. 기본값으로 바탕화면의 <code>JKP_WorkHub_Files</code> 폴더가 사용됩니다.</p>
+                </div>
+
+                <!-- API Key input -->
+                <div>
+                    <label for="ws-api-key" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase flex items-center justify-between">
+                        <span>Gemini API Key</span>
+                        <span class="text-[10px] text-purple-500 font-semibold normal-case">선택 사항</span>
+                    </label>
+                    <input type="password" id="ws-api-key" class="w-full text-sm border border-slate-200 rounded-xl px-4 py-2.5 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all" placeholder="AIzaSy...">
+                    <p class="text-[11px] text-slate-400 mt-1.5">AI 업무 자동 요약, AI 파일 정리 비서 등을 활성화하려면 Google Gemini API 키를 입력하세요. 나중에 [환경설정] 메뉴에서도 등록할 수 있습니다.</p>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="pt-4 border-t border-slate-100 flex justify-between space-x-3">
+                    <button type="button" id="btn-ws-skip" class="px-5 py-2.5 border border-slate-200 rounded-xl text-slate-500 text-sm hover:bg-slate-50 hover:text-slate-700 font-semibold transition-colors">
+                        나중에 설정 (오프라인/로컬만 사용)
+                    </button>
+                    <button type="submit" class="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all">
+                        설정 저장 후 시작하기
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- ==================== SYSTEM TOAST CONTAINER ==================== -->
+    <div id="toast-container"></div>
+
+    <!-- ==================== GLOBAL LOADING OVERLAY ==================== -->
+    <div id="global-loading-overlay" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] hidden flex-col items-center justify-center">
+        <div class="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-slate-100">
+                <div class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 w-1/2 animate-[progress_1s_ease-in-out_infinite_alternate]"></div>
+            </div>
+            
+            <i class="fa-solid fa-wand-magic-sparkles text-4xl text-purple-500 mb-4 animate-bounce"></i>
+            <h3 class="text-lg font-bold text-slate-800 mb-2">AI가 폴더를 정리 중입니다</h3>
+            <p class="text-sm text-slate-500 mb-4">대상 파일/폴더의 개수에 따라<br>대략 <strong class="text-purple-600">10초 ~ 20초</strong> 정도 소요됩니다.</p>
+            
+            <div class="bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 w-full flex justify-between items-center">
+                <span class="text-xs font-semibold text-slate-500 uppercase">진행 시간</span>
+                <span id="global-loading-timer" class="text-sm font-bold text-slate-700 font-mono">00:00</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Files -->
+    <script src="mockData.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="app.js?v=1782823026214"></script>
+</body>
+</html>
