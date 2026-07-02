@@ -1,0 +1,24 @@
+# 개인 설정 및 API 키 (절대 GitHub에 올리지 말 것)
+settings.json
+
+# 사용자 데이터 DB (배포 대상 제외)
+WorkHub_DB/
+
+# 업데이트 백업 폴더
+WorkHub_Backup_*/
+
+# 업데이트 임시 폴더
+WorkHub_Update_tmp/
+
+# 로그 파일
+*.log
+server_out.txt
+server_err.txt
+
+# node_modules는 용량이 크므로 제외 (npm install로 재설치)
+node_modules/
+
+# OS 파일
+.DS_Store
+Thumbs.db
+desktop.ini
