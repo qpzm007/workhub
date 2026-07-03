@@ -638,9 +638,9 @@ try {
         vendors: [],      // Partners (Vendors/Customers)
         components: [],   // Shared Assets
         orders: [],       // Tasks
-        activeView: "dashboard",
-        activeFolder: null,
-        currentExplorerPath: "", // Relative path under DESKTOP_ROOT
+        activeView: localStorage.getItem("workhub_activeView") || "dashboard",
+        activeFolder: localStorage.getItem("workhub_activeFolder") || null,
+        currentExplorerPath: localStorage.getItem("workhub_currentExplorerPath") || "", // Relative path under DESKTOP_ROOT
         topLevelFolders: [],     // Dynamic folders from root
         searchQuery: "",
         activeDept: "all",  // Current filtered department
@@ -648,6 +648,7 @@ try {
         userFolderSchema: null
     };
     window._workHubState = state; // 외부 이벤트 위임에서 접근 가능하도록 노출
+    let isInitialLoad = true;
 
     const API_BASE = window.location.origin.startsWith("file") || window.location.origin.includes("null")
         ? "http://localhost:45678/api"
@@ -687,7 +688,12 @@ try {
             
             const scrollEl = document.getElementById("content-area");
             const savedScroll1 = scrollEl ? scrollEl.scrollTop : 0;
-            renderViewData(state.activeView, state.activeFolder);
+            if (isInitialLoad) {
+                isInitialLoad = false;
+                switchView(state.activeView, state.activeFolder);
+            } else {
+                renderViewData(state.activeView, state.activeFolder);
+            }
             if (scrollEl && savedScroll1 > 0) requestAnimationFrame(() => scrollEl.scrollTop = savedScroll1);
 
             // 2. Lazy load heavy files crawl in the background
@@ -726,7 +732,12 @@ try {
                     state.topLevelFolders = resDir.folders || [];
                     updateStats();
                     renderSidebarFolders();
-                    renderViewData(state.activeView, state.activeFolder);
+                    if (isInitialLoad) {
+                        isInitialLoad = false;
+                        switchView(state.activeView, state.activeFolder);
+                    } else {
+                        renderViewData(state.activeView, state.activeFolder);
+                    }
                 } catch (err2) {
                     console.error("Retry failed, using LocalStorage fallback:", err2);
                     initLocalStorageFallback();
@@ -775,7 +786,12 @@ try {
 
         updateStats();
         renderSidebarFolders();
-        renderViewData(state.activeView, state.activeFolder);
+        if (isInitialLoad) {
+            isInitialLoad = false;
+            switchView(state.activeView, state.activeFolder);
+        } else {
+            renderViewData(state.activeView, state.activeFolder);
+        }
         showToast("오프라인 LocalStorage 버전으로 전환되었습니다.", "warning");
     }
 
@@ -1065,6 +1081,16 @@ try {
     function switchView(viewName, folderName = null) {
         state.activeView = viewName;
         state.activeFolder = folderName;
+
+        localStorage.setItem("workhub_activeView", viewName);
+        localStorage.setItem("workhub_activeFolder", folderName || "");
+        if (viewName !== "folders") {
+            state.currentExplorerPath = "";
+            localStorage.setItem("workhub_currentExplorerPath", "");
+        } else if (folderName) {
+            state.currentExplorerPath = folderName;
+            localStorage.setItem("workhub_currentExplorerPath", folderName);
+        }
 
         document.querySelectorAll(".view-pane").forEach(view => view.classList.add("hidden"));
         const activePane = document.getElementById(`view-${viewName}`);
@@ -1746,6 +1772,8 @@ try {
     // -------------------------------------------------------------
     async function renderFolderView(folderName) {
         const currentPath = state.currentExplorerPath || folderName;
+        state.currentExplorerPath = currentPath;
+        localStorage.setItem("workhub_currentExplorerPath", currentPath);
 
         // 1. Breadcrumbs
         renderBreadcrumbs(currentPath);
@@ -2581,6 +2609,7 @@ try {
 
         await syncData("orders", updatedTasks);
         closeModal("modal-order-form");
+        renderViewData(state.activeView, state.activeFolder);
     });
 
 
@@ -2821,7 +2850,7 @@ try {
                             </div>
                         </div>
                         
-                        <textarea id="active-session-content" class="w-full h-32 bg-white border border-slate-200 rounded-xl p-4 resize-none focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 text-sm mb-3 placeholder-slate-400" placeholder="업무 내용, 특이사항, 회의록 등을 자유롭게 작성하세요... (스크린샷 붙여넣기 가능)">${task.activeSession.content || ""}</textarea>
+                        <textarea id="active-session-content" class="w-full min-h-[160px] bg-white border border-slate-200 rounded-xl p-4 resize-y focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 text-sm mb-3 placeholder-slate-400" placeholder="업무 내용, 특이사항, 회의록 등을 자유롭게 작성하세요... (스크린샷 붙여넣기 가능)">${task.activeSession.content || ""}</textarea>
                         
                         ${attachmentsHtml}
 
@@ -2920,7 +2949,7 @@ try {
                             <!-- Edit Card -->
                             <div class="bg-blue-50/50 rounded-xl border border-blue-200 shadow-sm p-4">
                                 <input type="text" id="edit-title-${entry.id}" class="w-full font-bold text-slate-800 text-base bg-white border border-slate-200 rounded-lg px-3 py-2 mb-3 focus:ring-2 focus:ring-blue-500 outline-none" value="${entry.title || ''}">
-                                <textarea id="edit-content-${entry.id}" class="w-full h-24 bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-700 leading-relaxed mb-3 focus:ring-2 focus:ring-blue-500 outline-none resize-none placeholder-slate-400" placeholder="내용을 입력하세요...">${entry.content || ''}</textarea>
+                                <textarea id="edit-content-${entry.id}" class="w-full min-h-[160px] bg-white border border-slate-200 rounded-lg p-3 text-sm text-slate-700 leading-relaxed mb-3 focus:ring-2 focus:ring-blue-500 outline-none resize-y placeholder-slate-400" placeholder="내용을 입력하세요...">${entry.content || ''}</textarea>
                                 ${attachmentsHtmlEdit}
                                 <div class="flex items-center justify-between mt-3">
                                     <div class="flex gap-2">

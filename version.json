@@ -1,6 +1,6 @@
 {
-  "version": "1.1.1",
+  "version": "1.1.2",
   "githubOwner": "qpzm007",
   "githubRepo": "workhub",
-  "releaseNotes": "v1.1.1 업데이트 적용됨: 업무타임라인 링크 추가 시 하위 폴더/파일 전역 검색 기능 추가"
+  "releaseNotes": "v1.1.2 업데이트 적용됨: 새로고침 시 페이지 유지, 업무 등록 시 화면 즉시 반영, 타임라인 작성창 높이 조절 기능 추가"
 }
