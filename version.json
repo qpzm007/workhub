@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.1",
   "githubOwner": "qpzm007",
   "githubRepo": "workhub",
-  "releaseNotes": "초기 배포 버전"
+  "releaseNotes": "v1.1.1 업데이트 적용됨: 업무타임라인 링크 추가 시 하위 폴더/파일 전역 검색 기능 추가"
 }

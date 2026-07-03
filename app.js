@@ -3241,30 +3241,58 @@ try {
             pathEl.textContent = data.currentPath || '(최상위)';
 
             let html = '';
+            const filter = filterText.trim().toLowerCase();
+            const isSearch = !!filter;
 
-            // Back / Parent button
-            if (data.parent) {
+            // Back / Parent button (only show when not searching)
+            if (!isSearch && data.parent) {
                 html += `<div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 cursor-pointer text-slate-600 transition-colors" onclick="tlNavigate('${data.parent.replace(/\\/g, '\\\\')}')">
                     <i class="fa-solid fa-arrow-left text-slate-400 w-4"></i>
                     <span class="text-sm font-medium">← 상위 폴더</span>
                 </div>`;
             }
 
-            const filter = filterText.toLowerCase();
-            const filteredFolders = data.folders.filter(f => !filter || f.name.toLowerCase().includes(filter));
-            const filteredFiles = data.files.filter(f => !filter || f.name.toLowerCase().includes(filter));
+            let filteredFolders = [];
+            let filteredFiles = [];
 
-            if (filteredFolders.length === 0 && filteredFiles.length === 0 && !data.parent) {
-                html += '<div class="text-center text-slate-400 py-10 text-sm">이 폴더에 항목이 없습니다.</div>';
+            if (isSearch) {
+                // Global search from state.folders and state.files
+                const matchedFolders = (state.folders || []).filter(f => f.name.toLowerCase().includes(filter) || f.relativePath.toLowerCase().includes(filter));
+                const matchedFiles = (state.files || []).filter(f => f.name.toLowerCase().includes(filter) || f.relativePath.toLowerCase().includes(filter));
+
+                filteredFolders = matchedFolders.map(f => {
+                    const fullPath = state.syncPath ? (state.syncPath + '/' + f.relativePath).replace(/\//g, '\\') : f.relativePath;
+                    return { name: f.name, path: fullPath, relativePath: f.relativePath };
+                });
+
+                filteredFiles = matchedFiles.map(f => {
+                    const fullPath = state.syncPath ? (state.syncPath + '/' + f.relativePath).replace(/\//g, '\\') : f.relativePath;
+                    return { name: f.name, path: fullPath, relativePath: f.relativePath };
+                });
+            } else {
+                // Local directory listing
+                filteredFolders = data.folders || [];
+                filteredFiles = data.files || [];
+            }
+
+            if (filteredFolders.length === 0 && filteredFiles.length === 0) {
+                if (isSearch) {
+                    html += '<div class="text-center text-slate-400 py-10 text-sm">검색 결과가 없습니다.</div>';
+                } else {
+                    html += '<div class="text-center text-slate-400 py-10 text-sm">이 폴더에 항목이 없습니다.</div>';
+                }
             }
 
             filteredFolders.forEach(folder => {
                 const p = folder.path.replace(/\\/g, '\\\\');
                 html += `
                     <div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 cursor-pointer group transition-colors" ondblclick="tlNavigate('${p}')" onclick="tlSelect('${p}', '${folder.name.replace(/'/g, "\\'")}', true)">
-                        <i class="fa-solid fa-folder text-amber-400 w-4 text-center"></i>
-                        <span class="flex-1 text-sm text-slate-700 font-medium truncate">${folder.name}</span>
-                        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <i class="fa-solid fa-folder text-amber-400 w-4 text-center flex-shrink-0"></i>
+                        <div class="flex-1 min-w-0 flex flex-col">
+                            <span class="text-sm text-slate-700 font-medium truncate">${folder.name}</span>
+                            ${isSearch ? `<span class="text-[10px] text-slate-400 truncate">${folder.relativePath || ''}</span>` : ''}
+                        </div>
+                        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                             <button class="px-2 py-0.5 bg-blue-600 text-white text-xs rounded font-semibold" onclick="event.stopPropagation(); tlAddLink('${p}', '${folder.name.replace(/'/g, "\\'")}')">추가</button>
                             <button class="px-2 py-0.5 bg-white border border-slate-200 text-slate-600 text-xs rounded font-semibold" onclick="event.stopPropagation(); tlNavigate('${p}')">열기</button>
                         </div>
@@ -3281,9 +3309,12 @@ try {
                     'fa-file text-slate-400';
                 html += `
                     <div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-blue-50 cursor-pointer group transition-colors" onclick="tlSelect('${p}', '${file.name.replace(/'/g, "\\'")}', false)">
-                        <i class="fa-solid ${icon} w-4 text-center text-sm"></i>
-                        <span class="flex-1 text-sm text-slate-700 truncate">${file.name}</span>
-                        <button class="px-2 py-0.5 bg-blue-600 text-white text-xs rounded font-semibold opacity-0 group-hover:opacity-100 transition-opacity" onclick="event.stopPropagation(); tlAddLink('${p}', '${file.name.replace(/'/g, "\\'")}')">추가</button>
+                        <i class="fa-solid ${icon} w-4 text-center text-sm flex-shrink-0"></i>
+                        <div class="flex-1 min-w-0 flex flex-col">
+                            <span class="text-sm text-slate-700 truncate">${file.name}</span>
+                            ${isSearch ? `<span class="text-[10px] text-slate-400 truncate">${file.relativePath || ''}</span>` : ''}
+                        </div>
+                        <button class="px-2 py-0.5 bg-blue-600 text-white text-xs rounded font-semibold opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" onclick="event.stopPropagation(); tlAddLink('${p}', '${file.name.replace(/'/g, "\\'")}')">추가</button>
                     </div>`;
             });
 
