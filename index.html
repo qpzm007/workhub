@@ -24,6 +24,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/delimiter@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@editorjs/image@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/editorjs-html@3.4.0/build/edjsHTML.js"></script>
+    <!-- D3.js for Mindmap -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <!-- Custom Task Linker Plugin -->
     <script src="task-linker-plugin.js"></script>
     
@@ -657,11 +659,11 @@
                                     </th>
                                     <th class="py-2 px-4 font-semibold">
                                         <select id="all-tasks-filter-folder" class="bg-transparent border-none text-xs uppercase font-semibold text-slate-500 focus:ring-0 cursor-pointer p-0 pr-6 appearance-none">
-                                            <option value="all">분류 (PARA) ▾</option>
-                                            <option value="projects">Projects (단기)</option>
-                                            <option value="areas">Areas (영역)</option>
-                                            <option value="resources">Resources (자료)</option>
-                                            <option value="archives">Archives (보관)</option>
+                                            <option value="all">폴더 (PARA) ▾</option>
+                                            <option value="0_Projects">🚀 Projects (진행 업무)</option>
+                                            <option value="1_Areas">🎯 Areas (지속 관리)</option>
+                                            <option value="2_Resources">📚 Resources (참고 자료)</option>
+                                            <option value="3_Archives">🗄️ Archives (보관)</option>
                                             <option value="none">미분류</option>
                                         </select>
                                     </th>
@@ -691,17 +693,23 @@
                     </div>
                     
                     <div class="flex space-x-2">
-                        <button id="btn-folder-schema-design" class="bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center" title="사용자 정의 폴더 구조 설계">
-                            <i class="fa-solid fa-gears mr-2 text-purple-600"></i> 폴더 구조 설계
+                        <!-- View Toggle -->
+                        <div class="flex bg-slate-100 rounded-xl p-1 border border-slate-300">
+                            <button id="btn-view-list" class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-white shadow-sm text-blue-600 transition-all flex items-center" title="리스트 뷰">
+                                <i class="fa-solid fa-list"></i>
+                            </button>
+                            <button id="btn-view-mindmap" class="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-500 hover:text-slate-800 transition-all flex items-center" title="마인드맵 뷰">
+                                <i class="fa-solid fa-project-diagram"></i>
+                            </button>
+                        </div>
+                        <button id="btn-para-ai-generate" class="bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center" title="업무 스타일에 맞춘 PARA 폴더 자동 생성">
+                            <i class="fa-solid fa-robot mr-2 text-purple-600"></i> AI PARA 폴더 생성
                         </button>
                         <button id="btn-folder-ai-organize" class="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-4 py-2.5 rounded-xl shadow-lg hover:from-purple-600 hover:to-indigo-600 font-bold text-sm transition-all flex items-center justify-center hover:shadow-purple-500/30 border-0">
                             <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> AI 스마트 폴더 정리
                         </button>
                         <button id="btn-folder-add-subfolder" class="bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center">
                             <i class="fa-solid fa-folder-plus mr-2 text-blue-500"></i> 새 하위 폴더 생성
-                        </button>
-                        <button id="btn-folder-add-file" class="bg-blue-600 text-white px-4 py-2.5 rounded-xl shadow-lg hover:bg-blue-700 font-semibold text-sm transition-all flex items-center justify-center hover:shadow-blue-500/20">
-                            <i class="fa-solid fa-file-arrow-up mr-2"></i> 이 폴더에 실제 파일 생성
                         </button>
                     </div>
                 </div>
@@ -714,20 +722,21 @@
                     </div>
                 </div>
 
-                <h3 id="folder-files-heading" class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 select-none">파일 목록</h3>
+                <div id="view-list-container">
+                    <h3 id="folder-files-heading" class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 select-none">파일 목록</h3>
 
-                <!-- Files List in Folder -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <table class="w-full text-sm text-left">
-                        <thead class="text-xs text-slate-500 bg-slate-50 border-b border-slate-100">
-                            <tr>
-                                <th scope="col" class="px-6 py-3.5 font-semibold">파일명</th>
-                                <th scope="col" class="px-6 py-3.5 font-semibold">용량</th>
-                                <th scope="col" class="px-6 py-3.5 font-semibold">최종 수정일</th>
-                                <th scope="col" class="px-6 py-3.5 font-semibold">소유자/구분</th>
-                                <th scope="col" class="px-6 py-3.5 font-semibold text-center">동작</th>
-                            </tr>
-                        </thead>
+                    <!-- Files List in Folder -->
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-slate-500 bg-slate-50 border-b border-slate-100">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3.5 font-semibold">파일명</th>
+                                    <th scope="col" class="px-6 py-3.5 font-semibold">용량</th>
+                                    <th scope="col" class="px-6 py-3.5 font-semibold">최종 수정일</th>
+                                    <th scope="col" class="px-6 py-3.5 font-semibold">소유자/구분</th>
+                                    <th scope="col" class="px-6 py-3.5 font-semibold text-center">동작</th>
+                                </tr>
+                            </thead>
                         <tbody id="folder-files-table-body" class="divide-y divide-slate-100">
                             <!-- Dynamic files list from app.js -->
                         </tbody>
@@ -1407,87 +1416,63 @@
             </form>
         </div>
 
-        <!-- 7.1 USER DEFINED SCHEMA DESIGN WIZARD MODAL -->
-        <div id="modal-schema-wizard" class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 relative hidden animate-slide-up transform z-[60]">
+                </div> <!-- End of view-list-container -->
+
+                <!-- Mindmap View Container -->
+                <div id="view-mindmap-container" class="hidden flex-1 min-h-[650px] bg-slate-50 border border-slate-200 rounded-xl relative overflow-hidden flex-col">
+                    <div class="absolute top-4 right-4 z-10 flex space-x-2">
+                        <button id="btn-mm-expand-all" class="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-colors">
+                            <i class="fa-solid fa-expand mr-1"></i> 전체 펼침
+                        </button>
+                        <button id="btn-mm-collapse-all" class="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-colors">
+                            <i class="fa-solid fa-compress mr-1"></i> 단계별 닫기
+                        </button>
+                        <div class="w-px h-6 bg-slate-300 self-center mx-1"></div>
+                        <button id="btn-mm-zoom-in" class="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-colors" title="확대">
+                            <i class="fa-solid fa-magnifying-glass-plus"></i>
+                        </button>
+                        <button id="btn-mm-zoom-out" class="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-colors" title="축소">
+                            <i class="fa-solid fa-magnifying-glass-minus"></i>
+                        </button>
+                        <button id="btn-mm-fit" class="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-colors" title="화면에 맞추기">
+                            <i class="fa-solid fa-compress-arrows-alt"></i>
+                        </button>
+                    </div>
+                    <div id="mindmap-svg-container" class="flex-1 w-full min-h-[650px] cursor-grab active:cursor-grabbing"></div>
+                </div>
+
+        <!-- 7.1 PARA AI FOLDER GENERATE MODAL -->
+        <div id="modal-para-ai-generate" class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 relative hidden animate-slide-up transform z-[60]">
             <button class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 modal-close-btn"><i class="fa-solid fa-xmark text-xl"></i></button>
             <h2 class="text-xl font-bold text-slate-900 mb-1 flex items-center">
-                <i class="fa-solid fa-gears text-purple-600 mr-2"></i> 폴더 및 파일 구조 설계 마법사
+                <i class="fa-solid fa-robot text-purple-600 mr-2"></i> AI 기반 PARA 폴더 생성
             </h2>
-            <p class="text-xs text-slate-500 mb-4">본인의 업무 논리에 부합하는 폴더 및 파일명 규칙을 자유롭게 커스텀해 보세요. (최대 3단계 제한)</p>
+            <p class="text-xs text-slate-500 mb-4">현재 담당하시는 업무나 부서의 특징을 입력하시면, AI가 PARA 방법론에 맞춘 최적의 폴더 구조를 자동 생성해 드립니다.</p>
             
-            <form id="schema-wizard-form" class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+            <form id="para-ai-generate-form" class="space-y-4">
                 <div>
-                    <label for="sw-schema-name" class="block text-xs font-bold text-slate-500 mb-1 uppercase">스키마 규칙 명칭 *</label>
-                    <input type="text" id="sw-schema-name" required class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-purple-500 focus:border-purple-500" placeholder="예: 구매팀 발주 관리, 마케팅 캠페인">
+                    <label for="para-job-style" class="block text-xs font-bold text-slate-500 mb-1 uppercase">담당 업무 및 직무 설명 *</label>
+                    <textarea id="para-job-style" required rows="4" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-purple-500 focus:border-purple-500" placeholder="예: 저는 재무팀 소속으로, 매월 부가세 신고, 직원 급여 처리, 월간 자금 흐름 보고서 작성을 주로 담당합니다. 그 외에 회계 세법 변경 사항도 수시로 체크해야 합니다."></textarea>
                 </div>
 
-                <!-- Level 1 (대분류) -->
-                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-bold rounded-md mb-2">📁 1단계 (대분류)</span>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label for="sw-l1-label" class="block text-[11px] font-bold text-slate-500 mb-1">분류명 (라벨)*</label>
-                            <input type="text" id="sw-l1-label" required class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-purple-500 focus:border-purple-500" placeholder="예: 공급업체명, 연도_부서명">
-                        </div>
-                        <div>
-                            <label for="sw-l1-type" class="block text-[11px] font-bold text-slate-500 mb-1">입력 형태</label>
-                            <select id="sw-l1-type" class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-purple-500 focus:border-purple-500">
-                                <option value="free_text">자유 텍스트</option>
-                                <option value="fixed_list">고정 목록 (선택지 지정)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div id="sw-l1-options-container" class="mt-2 hidden">
-                        <label for="sw-l1-options" class="block text-[10px] font-bold text-slate-400 mb-1">목록 옵션 (줄바꿈으로 구분)</label>
-                        <textarea id="sw-l1-options" rows="2" class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-purple-500 focus:border-purple-500" placeholder="옵션1&#10;옵션2&#10;옵션3"></textarea>
-                    </div>
+                <div id="para-ai-loading" class="hidden flex flex-col items-center justify-center py-6">
+                    <i class="fa-solid fa-circle-notch fa-spin text-purple-500 text-3xl mb-3"></i>
+                    <p class="text-sm text-slate-600 font-medium animate-pulse">AI가 최적의 폴더 구조를 설계 중입니다...</p>
                 </div>
 
-                <!-- Level 2 (중분류) -->
-                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <span class="inline-block px-2 py-0.5 bg-green-100 text-green-800 text-[10px] font-bold rounded-md mb-2">📁 2단계 (중분류)</span>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label for="sw-l2-label" class="block text-[11px] font-bold text-slate-500 mb-1">분류명 (라벨)*</label>
-                            <input type="text" id="sw-l2-label" required class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-purple-500 focus:border-purple-500" placeholder="예: 품목군, 공정단계">
-                        </div>
-                        <div>
-                            <label for="sw-l2-type" class="block text-[11px] font-bold text-slate-500 mb-1">입력 형태</label>
-                            <select id="sw-l2-type" class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-purple-500 focus:border-purple-500">
-                                <option value="fixed_list">고정 목록 (권장: 일관성 유지)</option>
-                                <option value="free_text">자유 텍스트</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div id="sw-l2-options-container" class="mt-2">
-                        <label for="sw-l2-options" class="block text-[10px] font-bold text-slate-400 mb-1">목록 옵션 (줄바꿈으로 구분) *</label>
-                        <textarea id="sw-l2-options" rows="3" class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-purple-500 focus:border-purple-500" placeholder="예: 원자재&#10;부자재&#10;설비"></textarea>
-                    </div>
-                </div>
-
-                <!-- Level 3 (소분류 - 최하위) -->
-                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <span class="inline-block px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-md mb-2">📁 3단계 (소분류)</span>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label for="sw-l3-label" class="block text-[11px] font-bold text-slate-500 mb-1">분류명 (라벨)*</label>
-                            <input type="text" id="sw-l3-label" required class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-purple-500 focus:border-purple-500" placeholder="예: 발주건명, 프로젝트명">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-slate-400 mb-1">입력 형태 (최하단 고정)</label>
-                            <input type="text" readonly value="자유 텍스트 (최하위)" class="w-full text-xs border border-slate-200 bg-slate-100 rounded-lg px-2.5 py-1.5 text-slate-500 select-none">
-                        </div>
-                    </div>
+                <div id="para-ai-preview" class="hidden">
+                    <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">생성될 폴더 구조 미리보기</label>
+                    <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-48 overflow-y-auto text-sm font-mono text-slate-700 whitespace-pre"></div>
                 </div>
 
                 <div class="bg-purple-50 rounded-xl p-3 border border-purple-100 text-[11px] text-purple-700">
-                    <i class="fa-solid fa-circle-info mr-1"></i> 정의하신 1~3단계의 폴더 구조는 <strong>AI 스마트 파일 정리</strong> 시 적용되는 표준 규칙이 됩니다.<br>
-                    AI 비서는 이 규칙에 맞춰 최대 3단계 깊이 내로 폴더를 생성하고 문서를 자동 분류합니다.
+                    <i class="fa-solid fa-circle-info mr-1"></i> <strong>PARA 방법론</strong>:
+                    Projects(단기 프로젝트), Areas(지속 관리 영역), Resources(참고자료), Archives(보관함) 4가지 카테고리로 정보를 분류하여 업무 효율을 높이는 글로벌 스탠다드 정리법입니다.
                 </div>
 
                 <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
                     <button type="button" class="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 text-sm hover:bg-slate-50 modal-close-btn">취소</button>
-                    <button type="submit" class="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold transition-colors">설계 저장 및 즉시 적용</button>
+                    <button type="submit" id="btn-para-generate-submit" class="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-semibold transition-colors">구조 설계 및 폴더 생성</button>
                 </div>
             </form>
         </div>

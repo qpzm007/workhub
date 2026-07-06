@@ -152,13 +152,11 @@ function invalidateCache() {
 }
 
 const DEFAULT_FOLDERS = [
-    "00_수신함_Inbox",
-    "01_기획_및_보고",
-    "02_고객사_및_협력사",
-    "03_계약_및_발주",
-    "04_공통_양식_템플릿",
-    "05_업무_연관_파일_Task_Files",
-    "09_아카이브_Archive"
+    "0_Projects",
+    "1_Areas",
+    "2_Resources",
+    "3_Archives",
+    "05_업무_연관_파일_Task_Files"
 ];
 
 // Helper to format file sizes
@@ -232,16 +230,16 @@ async function initFilesystem() {
             console.log(`Created Desktop Root Folder: ${DESKTOP_ROOT}`);
         }
 
-        // 2. Create subfolders
-        /* DEFAULT_FOLDERS creation disabled by user request
-        DEFAULT_FOLDERS.forEach(folder => {
-            const folderPath = path.join(DESKTOP_ROOT, folder);
-            if (!fs.existsSync(folderPath)) {
-                fs.mkdirSync(folderPath, { recursive: true });
-                console.log(`Created Subfolder: ${folder}`);
-            }
-        });
-        */
+        // 2. Create PARA subfolders automatically
+        if (DESKTOP_ROOT) {
+            DEFAULT_FOLDERS.forEach(folder => {
+                const folderPath = path.join(DESKTOP_ROOT, folder);
+                if (!fs.existsSync(folderPath)) {
+                    fs.mkdirSync(folderPath, { recursive: true });
+                    console.log(`Created PARA Folder: ${folder}`);
+                }
+            });
+        }
 
         // 3. Create hidden database dir
         if (!fs.existsSync(DB_DIR)) {
@@ -1133,6 +1131,26 @@ app.post('/api/files/open', (req, res) => {
     }
 });
 
+function findFileFallback(dir, targetName, maxDepth = 4, currentDepth = 0) {
+    if (currentDepth > maxDepth) return null;
+    try {
+        const items = fs.readdirSync(dir, { withFileTypes: true });
+        for (const item of items) {
+            const fullPath = path.join(dir, item.name);
+            if (item.name === targetName) {
+                return fullPath;
+            }
+            if (item.isDirectory() && !item.name.startsWith('.')) {
+                const found = findFileFallback(fullPath, targetName, maxDepth, currentDepth + 1);
+                if (found) return found;
+            }
+        }
+    } catch (e) {
+        // Ignore permission/access errors
+    }
+    return null;
+}
+
 // 3.6 OPEN AN ABSOLUTE PATH IN OS (for timeline links)
 app.post('/api/files/open-path', (req, res) => {
     try {
@@ -1140,8 +1158,27 @@ app.post('/api/files/open-path', (req, res) => {
         if (!absolutePath) {
             return res.status(400).json({ error: "Missing absolutePath parameter." });
         }
-        openPathInOS(absolutePath);
-        res.json({ success: true });
+        
+        let finalPath = absolutePath;
+        let pathChanged = false;
+        
+        if (!fs.existsSync(absolutePath)) {
+            const fileName = path.basename(absolutePath);
+            const searchRoot = DESKTOP_ROOT || __dirname;
+            console.log(`[OS OPEN] Path missing, searching for: ${fileName} in ${searchRoot}`);
+            
+            const found = findFileFallback(searchRoot, fileName, 4);
+            if (found) {
+                finalPath = found;
+                pathChanged = true;
+                console.log(`[OS OPEN] Found at new path: ${finalPath}`);
+            } else {
+                return res.status(404).json({ error: "File moved or deleted and could not be found." });
+            }
+        }
+
+        openPathInOS(finalPath);
+        res.json({ success: true, newPath: pathChanged ? finalPath : null });
     } catch (err) {
         console.error("Error opening path:", err);
         res.status(500).json({ error: "Failed to open path." });
@@ -1415,6 +1452,94 @@ app.post('/api/schema', async (req, res) => {
     } catch (err) {
         console.error("Error saving schema:", err);
         res.status(500).json({ error: "Failed to save schema." });
+    }
+});
+
+// 4.2.2.1 POST PARA AI FOLDER GENERATE
+app.post('/api/para/generate', async (req, res) => {
+    try {
+        const { apiKey, jobStyle } = req.body;
+        if (!apiKey) {
+            return res.status(401).json({ error: "API Key is required in settings." });
+        }
+        if (!jobStyle) {
+            return res.status(400).json({ error: "Job style description is required." });
+        }
+        if (!DESKTOP_ROOT || !fs.existsSync(DESKTOP_ROOT)) {
+            return res.status(400).json({ error: "로컬 폴더 경로(바탕화면 실시간 폴더)가 먼저 설정되어 있어야 합니다." });
+        }
+
+        const prompt = `당신은 사용자의 업무 스타일과 직무 설명을 바탕으로 PARA(Projects, Areas, Resources, Archives) 방법론에 맞춘 폴더 구조를 설계해주는 AI 비서입니다.
+반드시 다음 4개의 최상위 폴더를 유지해야 합니다:
+0_Projects
+1_Areas
+2_Resources
+3_Archives
+
+사용자의 설명을 분석하여 각 최상위 폴더 아래에 적절한 하위 폴더들을 생성하세요. (최대 2 depth)
+응답은 오직 생성해야 할 폴더들의 상대 경로 문자열 배열을 포함하는 순수 JSON 형식이어야 합니다. 마크다운 태그(\`\`\`json 등)나 다른 텍스트를 절대 포함하지 마세요.
+예시:
+[
+  "0_Projects/[2026-07]_상반기_결산",
+  "1_Areas/급여_및_인사관리",
+  "2_Resources/세법_개정_참고자료",
+  "3_Archives/_임시보관"
+]
+
+사용자 업무 설명:
+${jobStyle}`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 0.2 }
+            })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(`Gemini API Error: ${errData.error?.message || response.statusText}`);
+        }
+
+        const data = await response.json();
+        let aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        
+        // Clean up markdown formatting if present
+        aiText = aiText.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        let folderPaths = [];
+        try {
+            folderPaths = JSON.parse(aiText);
+            if (!Array.isArray(folderPaths)) throw new Error("Parsed JSON is not an array");
+        } catch (e) {
+            console.error("Failed to parse AI response as JSON:", aiText);
+            return res.status(500).json({ error: "AI가 올바른 JSON 형식을 반환하지 않았습니다.", details: aiText });
+        }
+
+        const createdFolders = [];
+        for (const relPath of folderPaths) {
+            // Validate that the paths start with PARA directories to prevent arbitrary folder creation
+            if (!/^[0-3]_(Projects|Areas|Resources|Archives)/.test(relPath)) continue;
+
+            const cleanRelPath = relPath.replace(/[<>:"|?*]/g, '_'); // Replace invalid Windows chars
+            const fullPath = path.join(DESKTOP_ROOT, cleanRelPath);
+
+            // Basic security check to prevent directory traversal
+            if (fullPath.startsWith(DESKTOP_ROOT)) {
+                if (!fs.existsSync(fullPath)) {
+                    fs.mkdirSync(fullPath, { recursive: true });
+                    createdFolders.push(cleanRelPath);
+                }
+            }
+        }
+
+        invalidateCache();
+        res.json({ success: true, createdFolders, aiResponse: folderPaths });
+    } catch (err) {
+        console.error("Error generating PARA folders:", err);
+        res.status(500).json({ error: err.message || "Failed to generate PARA folders." });
     }
 });
 

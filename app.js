@@ -396,6 +396,7 @@ try {
         .then(data => {
             const currentApi = data.apiKey || '';
             const currentSync = data.desktopSyncPath || '';
+            state.apiKey = currentApi;
             state.syncPath = currentSync;
             const currentAiContext = data.aiContext || '';
             const currentCustomNames = data.customNames || {};
@@ -662,16 +663,49 @@ try {
         ? "http://localhost:45678/api"
         : "/api";
 
-    // Fixed virtual folders list reflecting general business
+    // PARA Method virtual folders
     const folderList = [
-        "00_수신함_Inbox",
-        "01_기획_및_보고",
-        "02_고객사_및_협력사",
-        "03_계약_및_발주",
-        "04_공통_양식_템플릿",
-        "05_업무_연관_파일_Task_Files",
-        "09_아카이브_Archive"
+        "0_Projects",
+        "1_Areas",
+        "2_Resources",
+        "3_Archives"
     ];
+
+    // PARA folder metadata (icons, colors, descriptions)
+    const PARA_FOLDER_META = {
+        "0_Projects": {
+            icon: "fa-solid fa-rocket",
+            color: "text-blue-400",
+            bgColor: "bg-blue-50",
+            textColor: "text-blue-600",
+            label: "Projects",
+            desc: "진행 중인 업무 (기한 있음)"
+        },
+        "1_Areas": {
+            icon: "fa-solid fa-bullseye",
+            color: "text-emerald-400",
+            bgColor: "bg-emerald-50",
+            textColor: "text-emerald-600",
+            label: "Areas",
+            desc: "지속 관리 업무 (역할 기반)"
+        },
+        "2_Resources": {
+            icon: "fa-solid fa-book-open",
+            color: "text-amber-400",
+            bgColor: "bg-amber-50",
+            textColor: "text-amber-600",
+            label: "Resources",
+            desc: "참고 자료 데이터베이스"
+        },
+        "3_Archives": {
+            icon: "fa-solid fa-box-archive",
+            color: "text-slate-400",
+            bgColor: "bg-slate-100",
+            textColor: "text-slate-600",
+            label: "Archives",
+            desc: "완료·보관 (과거 기록)"
+        }
+    };
 
     // Fetch all data from Express API - Decoupled with Lazy Loading to optimize startup time
     async function loadStateFromServer() {
@@ -700,7 +734,8 @@ try {
                 isInitialLoad = false;
                 switchView(state.activeView, state.activeFolder);
             } else {
-                renderViewData(state.activeView, state.activeFolder);
+                // 백그라운드 동기화 시 마인드맵 초기화 방지 (skipMindmap=true)
+                renderViewData(state.activeView, state.activeFolder, true);
             }
             if (scrollEl && savedScroll1 > 0) requestAnimationFrame(() => scrollEl.scrollTop = savedScroll1);
 
@@ -712,11 +747,13 @@ try {
                 state.files = resFiles;
                 state.folders = resAllFolders || [];
                 
+                // Re-render currently active folder if necessary, wait no. just mindmap is enough because mindmap depends on all folders.
+                
                 // Refresh statistics and tables once filesystem data is ready
                 updateStats();
                 if (state.activeView === "dashboard" || state.activeView === "folders") {
                     const savedScroll2 = scrollEl ? scrollEl.scrollTop : 0;
-                    renderViewData(state.activeView, state.activeFolder);
+                    renderViewData(state.activeView, state.activeFolder, true);
                     if (scrollEl && savedScroll2 > 0) requestAnimationFrame(() => scrollEl.scrollTop = savedScroll2);
                 }
             }).catch(err => {
@@ -744,7 +781,7 @@ try {
                         isInitialLoad = false;
                         switchView(state.activeView, state.activeFolder);
                     } else {
-                        renderViewData(state.activeView, state.activeFolder);
+                        renderViewData(state.activeView, state.activeFolder, true);
                     }
                 } catch (err2) {
                     console.error("Retry failed, using LocalStorage fallback:", err2);
@@ -1135,7 +1172,7 @@ try {
     // 전역으로 즉시 노출 (이벤트 위임 핸들러에서 클릭 시점에 바로 사용 가능)
     window.switchView = switchView;
 
-    function renderViewData(viewName, folderName) {
+    function renderViewData(viewName, folderName, skipMindmap = false) {
         switch (viewName) {
             case "dashboard": renderDashboard(); break;
             case "search": renderSearchHub(); break;
@@ -1143,7 +1180,7 @@ try {
             case "components": renderComponentsList(); break;
             case "orders": renderKanbanBoard(); break;
             case "all-tasks": renderAllTasksView(); break;
-            case "folders": renderFolderView(folderName); break;
+            case "folders": renderFolderView(folderName, skipMindmap); break;
             case "settings": /* settings 뷰는 별도 렌더링 불필요 (정적 HTML) */ break;
         }
     }
@@ -1278,21 +1315,29 @@ try {
         quickFoldersContainer.innerHTML = "";
 
         const folderThemes = {
-            "00_수신함_Inbox": { bg: "bg-blue-50", text: "text-blue-600" },
-            "01_기획_및_보고": { bg: "bg-emerald-50", text: "text-emerald-600" },
-            "02_고객사_및_협력사": { bg: "bg-amber-50", text: "text-amber-600" },
-            "03_계약_및_발주": { bg: "bg-purple-50", text: "text-purple-600" },
-            "04_공통_양식_템플릿": { bg: "bg-rose-50", text: "text-rose-600" },
-            "09_아카이브_Archive": { bg: "bg-slate-100", text: "text-slate-600" }
+            "0_Projects":  { bg: "bg-blue-50",    text: "text-blue-600" },
+            "1_Areas":     { bg: "bg-emerald-50", text: "text-emerald-600" },
+            "2_Resources": { bg: "bg-amber-50",   text: "text-amber-600" },
+            "3_Archives":  { bg: "bg-slate-100",  text: "text-slate-600" },
+            // Legacy folders (dimmed)
+            "00_수신함_Inbox":       { bg: "bg-blue-50",   text: "text-blue-400" },
+            "01_기획_및_보고":     { bg: "bg-emerald-50", text: "text-emerald-400" },
+            "02_고객사_및_협력사": { bg: "bg-amber-50",   text: "text-amber-400" },
+            "03_계약_및_발주":   { bg: "bg-purple-50",  text: "text-purple-400" },
+            "04_공통_양식_템플릿": { bg: "bg-rose-50",    text: "text-rose-400" },
+            "09_아카이브_Archive":  { bg: "bg-slate-100",  text: "text-slate-500" }
         };
 
-        const foldersToRender = state.topLevelFolders || [];
+        const foldersToRender = (state.topLevelFolders || []).filter(f => f.name !== '05_업무_연관_파일_Task_Files');
 
         foldersToRender.forEach(folder => {
             const folderName = folder.name;
             const theme = folderThemes[folderName] || { bg: "bg-blue-50", text: "text-blue-600" };
             const folderFilesCount = state.files.filter(f => f.folder === folderName || f.relativePath.startsWith(folderName + "/")).length;
-            const displayName = folderName.includes('_') ? folderName.split('_').slice(1).join('_') : folderName;
+            const meta = PARA_FOLDER_META[folderName];
+            const displayName = meta ? meta.label : (folderName.includes('_') ? folderName.split('_').slice(1).join(' ') : folderName);
+            const descText = meta ? `<p class="text-xs text-slate-400 mt-1">${meta.desc}</p>` : '';
+            const iconHtml = meta ? `<i class="${meta.icon} text-xl ${meta.textColor}"></i>` : `<i class="fa-regular fa-folder text-xl ${theme.text}"></i>`;
 
             const card = document.createElement("div");
             card.className = "bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all cursor-pointer group relative flex flex-col justify-between h-36";
@@ -1463,7 +1508,7 @@ try {
             });
         }
 
-        document.getElementById("dashboard-view-all-files").onclick = () => switchView("folders", "00_수신함_Inbox");
+        document.getElementById("dashboard-view-all-files").onclick = () => switchView("folders", "0_Projects");
         document.getElementById("dashboard-go-kanban").onclick = () => switchView("orders");
     }
 
@@ -1780,7 +1825,7 @@ try {
     // -------------------------------------------------------------
     // 10. VIRTUAL FOLDER VIEW RENDERER
     // -------------------------------------------------------------
-    async function renderFolderView(folderName) {
+    async function renderFolderView(folderName, skipMindmap = false) {
         const currentPath = state.currentExplorerPath || folderName;
         state.currentExplorerPath = currentPath;
         localStorage.setItem("workhub_currentExplorerPath", currentPath);
@@ -1838,11 +1883,16 @@ try {
             renderFolderViewFallback(folderName);
         }
 
-        document.getElementById("btn-folder-add-file").onclick = () => {
-            openModal("modal-file-upload-form");
-            const select = document.getElementById("uf-folder");
-            if (select) select.value = currentPath;
-        };
+        const btnFolderAddFile = document.getElementById("btn-folder-add-file");
+        if (btnFolderAddFile) {
+            btnFolderAddFile.onclick = () => {
+                openModal("modal-file-upload-form");
+                const select = document.getElementById("uf-folder");
+                if (select) select.value = currentPath;
+            };
+        }
+        
+        if (!skipMindmap && window.renderMindmap) window.renderMindmap();
     }
 
     // Helper to render breadcrumbs
@@ -2528,11 +2578,11 @@ try {
             const f = fileList[i];
             const ext = f.name.split(".").pop().toLowerCase();
             
-            // Map file types to folders
-            let targetFolder = "00_수신함_Inbox";
-            if (ext === "hwp") targetFolder = "01_기획_및_보고";
-            else if (ext === "xlsx" || ext === "xls") targetFolder = "04_공통_양식_템플릿";
-            else if (ext === "dwg") targetFolder = "02_고객사_및_협력사";
+            // PARA: default to 0_Projects
+            let targetFolder = "0_Projects";
+            if (ext === "hwp") targetFolder = "0_Projects";
+            else if (ext === "xlsx" || ext === "xls") targetFolder = "2_Resources";
+            else if (ext === "dwg") targetFolder = "0_Projects";
 
             const payload = {
                 name: f.name,
@@ -4327,126 +4377,72 @@ try {
     // USER DEFINED SCHEMA & FILE RENAME DIALOG LOGIC
     // -------------------------------------------------------------
 
-    // 1. Schema Wizard UI interactions
-    const btnSchemaDesign = document.getElementById("btn-folder-schema-design");
-    const swL1Type = document.getElementById("sw-l1-type");
-    const swL2Type = document.getElementById("sw-l2-type");
-    const swL1OptionsContainer = document.getElementById("sw-l1-options-container");
-    const swL2OptionsContainer = document.getElementById("sw-l2-options-container");
+    // 1. PARA AI Generate Modal Logic
+    const btnParaAiGenerate = document.getElementById("btn-para-ai-generate");
+    const paraAiGenerateForm = document.getElementById("para-ai-generate-form");
+    const paraAiLoading = document.getElementById("para-ai-loading");
+    const paraAiPreview = document.getElementById("para-ai-preview");
+    const btnParaGenerateSubmit = document.getElementById("btn-para-generate-submit");
 
-    if (swL1Type) {
-        swL1Type.addEventListener("change", () => {
-            if (swL1Type.value === "fixed_list") {
-                swL1OptionsContainer.classList.remove("hidden");
-            } else {
-                swL1OptionsContainer.classList.add("hidden");
+    if (btnParaAiGenerate) {
+        btnParaAiGenerate.addEventListener("click", () => {
+            if (!state.syncPath) {
+                showToast("환경설정에서 로컬 폴더 경로(바탕화면 실시간 폴더)를 먼저 지정해주세요.", "warning");
+                return;
             }
-        });
-    }
-
-    if (swL2Type) {
-        swL2Type.addEventListener("change", () => {
-            if (swL2Type.value === "fixed_list") {
-                swL2OptionsContainer.classList.remove("hidden");
-            } else {
-                swL2OptionsContainer.classList.add("hidden");
+            const apiKey = state.apiKey || localStorage.getItem('workhub_gemini_api_key');
+            if (!apiKey) {
+                showToast("환경설정에서 Gemini API Key를 먼저 입력해주세요.", "warning");
+                return;
             }
-        });
-    }
-
-    if (btnSchemaDesign) {
-        btnSchemaDesign.addEventListener("click", () => {
-            const schema = state.userFolderSchema || {
-                schemaName: "기본 기획팀 양식",
-                levels: [
-                    { level: 1, label: "연도_부서명", inputType: "free_text" },
-                    { level: 2, label: "업무성격", inputType: "fixed_list", options: ["01_시장조사", "02_전략기획", "03_캠페인진행", "04_예산집행"] },
-                    { level: 3, label: "프로젝트명", inputType: "free_text", isLeaf: true }
-                ],
-                fileNameVariables: ["level1", "level2"]
-            };
-
-            document.getElementById("sw-schema-name").value = schema.schemaName || "";
             
-            const lvl1 = schema.levels.find(l => l.level === 1) || { label: "", inputType: "free_text" };
-            document.getElementById("sw-l1-label").value = lvl1.label;
-            swL1Type.value = lvl1.inputType;
-            if (lvl1.inputType === "fixed_list") {
-                swL1OptionsContainer.classList.remove("hidden");
-                document.getElementById("sw-l1-options").value = (lvl1.options || []).join("\n");
-            } else {
-                swL1OptionsContainer.classList.add("hidden");
-            }
-
-            const lvl2 = schema.levels.find(l => l.level === 2) || { label: "", inputType: "fixed_list" };
-            document.getElementById("sw-l2-label").value = lvl2.label;
-            swL2Type.value = lvl2.inputType;
-            if (lvl2.inputType === "fixed_list") {
-                swL2OptionsContainer.classList.remove("hidden");
-                document.getElementById("sw-l2-options").value = (lvl2.options || []).join("\n");
-            } else {
-                swL2OptionsContainer.classList.add("hidden");
-            }
-
-            const lvl3 = schema.levels.find(l => l.level === 3) || { label: "" };
-            document.getElementById("sw-l3-label").value = lvl3.label;
-
-            openModal("modal-schema-wizard");
+            document.getElementById("para-job-style").value = "";
+            paraAiLoading.classList.add("hidden");
+            paraAiLoading.classList.remove("flex");
+            paraAiPreview.classList.add("hidden");
+            btnParaGenerateSubmit.disabled = false;
+            openModal("modal-para-ai-generate");
         });
     }
 
-    const schemaWizardForm = document.getElementById("schema-wizard-form");
-    if (schemaWizardForm) {
-        schemaWizardForm.addEventListener("submit", async (e) => {
+    if (paraAiGenerateForm) {
+        paraAiGenerateForm.addEventListener("submit", async (e) => {
             e.preventDefault();
+            
+            const jobStyle = document.getElementById("para-job-style").value.trim();
+            if (!jobStyle) return;
 
-            const schemaName = document.getElementById("sw-schema-name").value.trim();
-            const l1Label = document.getElementById("sw-l1-label").value.trim();
-            const l1Type = swL1Type.value;
-            const l1Options = document.getElementById("sw-l1-options").value.split("\n").map(o => o.trim()).filter(Boolean);
-
-            const l2Label = document.getElementById("sw-l2-label").value.trim();
-            const l2Type = swL2Type.value;
-            const l2Options = document.getElementById("sw-l2-options").value.split("\n").map(o => o.trim()).filter(Boolean);
-
-            const l3Label = document.getElementById("sw-l3-label").value.trim();
-
-            if (l1Type === "fixed_list" && l1Options.length === 0) {
-                showToast("1단계 고정 목록 옵션을 최소 1개 이상 입력해주세요.", "warning");
-                return;
-            }
-            if (l2Type === "fixed_list" && l2Options.length === 0) {
-                showToast("2단계 고정 목록 옵션을 최소 1개 이상 입력해주세요.", "warning");
-                return;
-            }
-
-            const body = {
-                schemaName,
-                levels: [
-                    { level: 1, label: l1Label, inputType: l1Type, ...(l1Type === 'fixed_list' ? { options: l1Options } : {}) },
-                    { level: 2, label: l2Label, inputType: l2Type, ...(l2Type === 'fixed_list' ? { options: l2Options } : {}) },
-                    { level: 3, label: l3Label, inputType: "free_text", isLeaf: true }
-                ],
-                fileNameVariables: ["level1", "level2"]
-            };
+            paraAiLoading.classList.remove("hidden");
+            paraAiLoading.classList.add("flex");
+            paraAiPreview.classList.add("hidden");
+            btnParaGenerateSubmit.disabled = true;
 
             try {
-                const res = await fetch(`${API_BASE}/schema`, {
+                const apiKey = state.apiKey || localStorage.getItem('workhub_gemini_api_key');
+                const res = await fetch(`${API_BASE}/para/generate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
+                    body: JSON.stringify({ apiKey, jobStyle })
                 });
+                
                 const data = await res.json();
                 if (data.success) {
-                    showToast("새로운 폴더/파일 규칙 스키마가 성공적으로 반영되었습니다.", "success");
-                    state.userFolderSchema = data.schema;
-                    closeModal("modal-schema-wizard");
-                    loadStateFromServer();
+                    paraAiPreview.classList.remove("hidden");
+                    paraAiPreview.querySelector("div").textContent = data.aiResponse.join("\n");
+                    showToast(`PARA 폴더 구조가 성공적으로 생성되었습니다. (${data.createdFolders.length}개)`, "success");
+                    loadStateFromServer(); // Refresh folder tree
+                    
+                    // Close modal after showing preview for a bit
+                    setTimeout(() => closeModal("modal-para-ai-generate"), 3000);
                 } else {
-                    showToast(data.error || "스키마 저장 실패", "error");
+                    showToast(data.error || "폴더 생성 실패", "error");
                 }
             } catch (err) {
                 showToast("서버 통신에 실패했습니다.", "error");
+            } finally {
+                paraAiLoading.classList.remove("flex");
+                paraAiLoading.classList.add("hidden");
+                btnParaGenerateSubmit.disabled = false;
             }
         });
     }
@@ -5070,9 +5066,60 @@ try {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ absolutePath: absPath })
                     });
+                    if (res.status === 404) {
+                        alert("파일을 찾을 수 없습니다 (완전히 삭제되었거나 검색 범위를 벗어났습니다).");
+                        return;
+                    }
                     const data = await res.json();
                     if (!data.success) {
                         alert("폴더/파일을 열 수 없습니다: " + (data.error || "서버 오류"));
+                        return;
+                    }
+
+                    if (data.newPath && data.newPath !== absPath) {
+                        // Update the DB if we are inside a task context
+                        if (window.currentSelectedTask) {
+                            const replaceLinkUrl = (links) => {
+                                if(!links) return false;
+                                let changed = false;
+                                links.forEach(lk => {
+                                    if(lk.url === absPath) {
+                                        lk.url = data.newPath;
+                                        changed = true;
+                                    }
+                                });
+                                return changed;
+                            };
+
+                            let updated = false;
+                            if (window.currentSelectedTask.timeline) {
+                                window.currentSelectedTask.timeline.forEach(entry => {
+                                    if(replaceLinkUrl(entry.links)) updated = true;
+                                });
+                            }
+                            if (window.currentSelectedTask.activeSession) {
+                                if(replaceLinkUrl(window.currentSelectedTask.activeSession.links)) updated = true;
+                            }
+                            
+                            // Also replace in EditorJS content if present
+                            if (window.currentSelectedTask.description && window.currentSelectedTask.description.includes(absPath)) {
+                                window.currentSelectedTask.description = window.currentSelectedTask.description.replace(new RegExp(absPath.replace(/\\/g, '\\\\'), 'g'), data.newPath);
+                                updated = true;
+                            }
+
+                            if (updated) {
+                                // Sync to DB
+                                const idx = state.orders.findIndex(o => o.id === window.currentSelectedTask.id);
+                                if (idx > -1) {
+                                    state.orders[idx] = window.currentSelectedTask;
+                                    await syncData("orders", state.orders);
+                                }
+                                // Update DOM for the clicked link immediately
+                                pathLink.setAttribute("data-path", data.newPath);
+                                pathLink.innerText = pathLink.innerText.replace(absPath, data.newPath);
+                                showToast("변경된 파일 경로가 자동으로 갱신되었습니다.", "info");
+                            }
+                        }
                     }
                 } catch (err) {
                     console.error("Error opening path:", err);
@@ -5272,7 +5319,13 @@ try {
                 "done": "bg-emerald-100 text-emerald-700", "completed": "bg-emerald-100 text-emerald-700"
             };
             const folderLabels = {
-                "none": "미분류", "projects": "Projects", "areas": "Areas",
+                "none": "미분류",
+                "0_Projects":  "프로젝트",
+                "1_Areas":     "영역",
+                "2_Resources": "자료",
+                "3_Archives":  "보관",
+                // Legacy PARA keys fallback
+                "projects": "Projects", "areas": "Areas",
                 "resources": "Resources", "archives": "Archives"
             };
 
@@ -5398,6 +5451,337 @@ try {
         link.click();
         document.body.removeChild(link);
     });
+
+    // --- MINDMAP & VIEW TOGGLE LOGIC ---
+    const btnViewList = document.getElementById("btn-view-list");
+    const btnViewMindmap = document.getElementById("btn-view-mindmap");
+    const viewListContainer = document.getElementById("view-list-container");
+    const viewMindmapContainer = document.getElementById("view-mindmap-container");
+    const subfoldersSection = document.getElementById("subfolders-section");
+    let currentViewMode = 'list';
+
+    if (btnViewList && btnViewMindmap) {
+        btnViewList.addEventListener('click', () => {
+            currentViewMode = 'list';
+            btnViewList.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+            btnViewList.classList.remove('text-slate-500', 'hover:text-slate-800');
+            btnViewMindmap.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+            btnViewMindmap.classList.add('text-slate-500', 'hover:text-slate-800');
+            
+            viewListContainer.classList.remove('hidden');
+            if (document.getElementById("subfolders-list-grid").innerHTML.trim() !== "") {
+                subfoldersSection.classList.remove('hidden');
+            }
+            viewMindmapContainer.classList.add('hidden');
+            viewMindmapContainer.classList.remove('flex');
+        });
+
+        btnViewMindmap.addEventListener('click', () => {
+            currentViewMode = 'mindmap';
+            btnViewMindmap.classList.add('bg-white', 'shadow-sm', 'text-blue-600');
+            btnViewMindmap.classList.remove('text-slate-500', 'hover:text-slate-800');
+            btnViewList.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
+            btnViewList.classList.add('text-slate-500', 'hover:text-slate-800');
+            
+            viewListContainer.classList.add('hidden');
+            subfoldersSection.classList.add('hidden');
+            viewMindmapContainer.classList.remove('hidden');
+            viewMindmapContainer.classList.add('flex');
+            
+            renderMindmap();
+        });
+    }
+
+    // --- D3 MINDMAP LOGIC ---
+    let mindmapSvg, mindmapG, mindmapZoom, mindmapRoot;
+    let mindmapDx = 40, mindmapDy = 200;
+
+    function buildFolderTreeForMindmap() {
+        const rootPath = state.currentExplorerPath || "";
+        const rootName = rootPath === "" ? "Root" : rootPath.split('/').pop();
+        const displayName = rootName.includes('_') ? rootName.split('_').slice(1).join('_') : rootName;
+        
+        const root = { name: displayName, children: [], relativePath: rootPath, isRoot: true };
+        const foldersMap = { [rootPath]: root };
+        
+        if (!state.folders || state.folders.length === 0) return root;
+
+        const sortedFolders = [...state.folders]
+            .filter(f => rootPath === "" || f.relativePath === rootPath || f.relativePath.startsWith(rootPath + '/'))
+            .sort((a, b) => a.relativePath.split('/').length - b.relativePath.split('/').length);
+
+        sortedFolders.forEach(folder => {
+            if (folder.relativePath === rootPath) return; // Skip the root itself
+            
+            const relativeToRoot = rootPath === "" ? folder.relativePath : folder.relativePath.substring(rootPath.length + 1);
+            const pathParts = relativeToRoot.split('/');
+            
+            let currentPath = rootPath;
+            let parentNode = root;
+
+            pathParts.forEach((part, i) => {
+                const pathSoFar = currentPath ? currentPath + '/' + part : part;
+                
+                if (!foldersMap[pathSoFar]) {
+                    const newNode = { 
+                        name: part, 
+                        relativePath: pathSoFar, 
+                        children: []
+                    };
+                    parentNode.children.push(newNode);
+                    foldersMap[pathSoFar] = newNode;
+                }
+                
+                parentNode = foldersMap[pathSoFar];
+                currentPath = pathSoFar;
+            });
+        });
+
+        return root;
+    }
+
+    window.renderMindmap = function() {
+        if (currentViewMode !== 'mindmap') return;
+        
+        const container = document.getElementById("mindmap-svg-container");
+        if (!container) return;
+        
+        container.innerHTML = "";
+        
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+
+        mindmapZoom = d3.zoom()
+            .scaleExtent([0.1, 3])
+            .on("zoom", (e) => mindmapG.attr("transform", e.transform));
+
+        mindmapSvg = d3.select("#mindmap-svg-container")
+            .append("svg")
+            .attr("width", "100%")
+            .attr("height", "100%")
+            .call(mindmapZoom)
+            .on("dblclick.zoom", null);
+
+        mindmapG = mindmapSvg.append("g");
+
+        const treeData = buildFolderTreeForMindmap();
+        mindmapRoot = d3.hierarchy(treeData);
+        mindmapRoot.x0 = height / 2;
+        mindmapRoot.y0 = 0;
+
+        if (mindmapRoot.children) {
+            mindmapRoot.children.forEach(collapseAll);
+        }
+
+        updateMindmap(mindmapRoot);
+        setTimeout(() => fitMindmapToScreen(), 100);
+    };
+
+    function collapseAll(d) {
+        if (d.children) {
+            d._children = d.children;
+            d._children.forEach(collapseAll);
+            d.children = null;
+        }
+    }
+
+    function expandAll(d) {
+        if (d._children) {
+            d.children = d._children;
+            d._children = null;
+        }
+        if (d.children) {
+            d.children.forEach(expandAll);
+        }
+    }
+
+    function updateMindmap(source) {
+        if (!mindmapG || !mindmapSvg) return;
+
+        const tree = d3.tree().nodeSize([mindmapDx, mindmapDy]);
+        const nodes = tree(mindmapRoot);
+        
+        const desc = mindmapRoot.descendants();
+        const links = mindmapRoot.links();
+
+        let left = mindmapRoot;
+        let right = mindmapRoot;
+        mindmapRoot.eachBefore(node => {
+            if (node.x < left.x) left = node;
+            if (node.x > right.x) right = node;
+        });
+
+        const transition = mindmapSvg.transition().duration(500);
+
+        const node = mindmapG.selectAll("g.node")
+            .data(desc, d => d.data.relativePath || "root");
+
+        const nodeEnter = node.enter().append("g")
+            .attr("class", "node")
+            .attr("transform", d => `translate(${source.y0},${source.x0})`)
+            .attr("fill-opacity", 0)
+            .attr("stroke-opacity", 0)
+            .style("cursor", "pointer")
+            .on("click", (event, d) => {
+                if (d.children) {
+                    d._children = d.children;
+                    d.children = null;
+                } else {
+                    d.children = d._children;
+                    d._children = null;
+                }
+                updateMindmap(d);
+            });
+
+        nodeEnter.append("circle")
+            .attr("r", 6)
+            .attr("fill", d => {
+                if (d.data.isRoot) return "#3b82f6";
+                if (d.data.relativePath.startsWith("0_")) return "#3b82f6";
+                if (d.data.relativePath.startsWith("1_")) return "#10b981";
+                if (d.data.relativePath.startsWith("2_")) return "#f59e0b";
+                if (d.data.relativePath.startsWith("3_")) return "#64748b";
+                return "#94a3b8";
+            })
+            .attr("stroke-width", 2)
+            .attr("stroke", d => d._children ? "#1e293b" : "white");
+
+        nodeEnter.append("text")
+            .attr("dy", "0.31em")
+            .attr("x", d => d._children ? -8 : 8)
+            .attr("text-anchor", d => d._children ? "end" : "start")
+            .text(d => d.data.name.includes('_') && !d.data.isRoot ? d.data.name.split('_').slice(1).join('_') : d.data.name)
+            .attr("fill", "#334155")
+            .attr("font-size", "12px")
+            .attr("font-weight", d => d.data.isRoot ? "bold" : "normal")
+            .clone(true).lower()
+            .attr("stroke-linejoin", "round")
+            .attr("stroke-width", 3)
+            .attr("stroke", "white");
+
+        const nodeUpdate = node.merge(nodeEnter).transition(transition)
+            .attr("transform", d => `translate(${d.y},${d.x})`)
+            .attr("fill-opacity", 1)
+            .attr("stroke-opacity", 1);
+            
+        nodeUpdate.select("circle")
+            .attr("stroke", d => d._children ? "#1e293b" : "white");
+
+        nodeUpdate.select("text")
+            .attr("x", d => d._children ? -8 : 8)
+            .attr("text-anchor", d => d._children ? "end" : "start");
+
+        const nodeExit = node.exit().transition(transition).remove()
+            .attr("transform", d => `translate(${source.y},${source.x})`)
+            .attr("fill-opacity", 0)
+            .attr("stroke-opacity", 0);
+
+        const link = mindmapG.selectAll("path.link")
+            .data(links, d => d.target.data.relativePath);
+
+        const linkEnter = link.enter().insert("path", "g")
+            .attr("class", "link")
+            .attr("fill", "none")
+            .attr("stroke", "#cbd5e1")
+            .attr("stroke-width", 1.5)
+            .attr("d", d => {
+                const o = {x: source.x0, y: source.y0};
+                return diagonal({source: o, target: o});
+            });
+
+        link.merge(linkEnter).transition(transition)
+            .attr("d", diagonal);
+
+        link.exit().transition(transition).remove()
+            .attr("d", d => {
+                const o = {x: source.x, y: source.y};
+                return diagonal({source: o, target: o});
+            });
+
+        desc.forEach(d => {
+            d.x0 = d.x;
+            d.y0 = d.y;
+        });
+    }
+
+    function diagonal(d) {
+        return `M${d.target.y},${d.target.x}
+                C${(d.source.y + d.target.y) / 2},${d.target.x}
+                 ${(d.source.y + d.target.y) / 2},${d.source.x}
+                 ${d.source.y},${d.source.x}`;
+    }
+
+    function fitMindmapToScreen() {
+        if (!mindmapSvg || !mindmapG || !mindmapRoot) return;
+        const container = document.getElementById("mindmap-svg-container");
+        const width = container.clientWidth || 800;
+        const height = container.clientHeight || 500;
+        
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        mindmapRoot.descendants().forEach(d => {
+            // In D3 tree, d.x is vertical, d.y is horizontal
+            if (d.x < minX) minX = d.x;
+            if (d.x > maxX) maxX = d.x;
+            if (d.y < minY) minY = d.y;
+            if (d.y > maxY) maxY = d.y;
+        });
+
+        // If tree is collapsed to root
+        if (minX === Infinity) {
+            minX = 0; maxX = 0; minY = 0; maxY = 0;
+        }
+
+        // Add padding (extra right padding for text)
+        minX -= 40; maxX += 40;
+        minY -= 40; maxY += 150; 
+        
+        const fullWidth = maxY - minY || 1;
+        const fullHeight = maxX - minX || 1;
+        const scale = Math.min(width / fullWidth, height / fullHeight, 1.5) * 0.9;
+        
+        const midX = minY + fullWidth / 2;
+        const midY = minX + fullHeight / 2;
+        
+        const transform = d3.zoomIdentity
+            .translate(width / 2 - scale * midX, height / 2 - scale * midY)
+            .scale(scale);
+            
+        mindmapSvg.transition().duration(750).call(mindmapZoom.transform, transform);
+    }
+
+    const btnExpandAll = document.getElementById("btn-mm-expand-all");
+    const btnCollapseAll = document.getElementById("btn-mm-collapse-all");
+    const btnZoomIn = document.getElementById("btn-mm-zoom-in");
+    const btnZoomOut = document.getElementById("btn-mm-zoom-out");
+    const btnFit = document.getElementById("btn-mm-fit");
+
+    if (btnExpandAll) {
+        btnExpandAll.addEventListener("click", () => {
+            if (mindmapRoot) { expandAll(mindmapRoot); updateMindmap(mindmapRoot); }
+        });
+    }
+    if (btnCollapseAll) {
+        btnCollapseAll.addEventListener("click", () => {
+            if (mindmapRoot && mindmapRoot.children) {
+                mindmapRoot.children.forEach(collapseAll);
+                updateMindmap(mindmapRoot);
+                setTimeout(fitMindmapToScreen, 500);
+            }
+        });
+    }
+    if (btnZoomIn) {
+        btnZoomIn.addEventListener("click", () => {
+            if (mindmapSvg) mindmapSvg.transition().call(mindmapZoom.scaleBy, 1.3);
+        });
+    }
+    if (btnZoomOut) {
+        btnZoomOut.addEventListener("click", () => {
+            if (mindmapSvg) mindmapSvg.transition().call(mindmapZoom.scaleBy, 0.7);
+        });
+    }
+    if (btnFit) {
+        btnFit.addEventListener("click", fitMindmapToScreen);
+    }
 
 } catch(err) {
     console.error('[WorkHub Critical Error] DOMContentLoaded 블록에서 오류 발생:', err);
