@@ -1424,11 +1424,13 @@ try {
             `;
         } else {
             activeTasks.forEach(task => {
-                const isUrgent = getDaysUntil(task.deliveryDate) <= 3 && task.status !== "completed";
+                const isUrgent = task.folder === "urgent_important" && task.status !== "completed";
                 const badgeTheme = task.status === "in_progress" 
                     ? "bg-amber-50 text-amber-700 border-amber-200" 
                     : "bg-blue-50 text-blue-700 border-blue-200";
                 const statusLabel = task.status === "in_progress" ? "진행중" : "진행 대기";
+
+                const urgInfo = URGENCY_MAP[task.folder] || URGENCY_MAP['not_urgent_not_important'];
 
                 const card = document.createElement("div");
                 card.className = `bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-blue-300 transition-all cursor-pointer hover:shadow-md ${isUrgent ? "ring-2 ring-red-500/20" : ""}`;
@@ -1438,13 +1440,13 @@ try {
                             ${statusLabel}
                         </span>
                         <span class="text-[10px] font-semibold ${isUrgent ? "text-red-500 font-bold animate-pulse" : "text-slate-400"}">
-                            마감: ${task.deliveryDate} ${isUrgent ? `(D-${getDaysUntil(task.deliveryDate)})` : ""}
+                            마감: ${task.deliveryDate} ${isUrgent && task.deliveryDate ? `(D-${getDaysUntil(task.deliveryDate)})` : ""}
                         </span>
                     </div>
                     <h3 class="text-sm font-bold text-slate-800 truncate" title="${task.title}">${task.title}</h3>
                     <div class="mt-3 flex items-center justify-between text-[11px] text-slate-400 select-none">
                         <span class="flex items-center"><i class="fa-solid fa-users mr-1 text-slate-300"></i> ${task.department} (${task.assignee})</span>
-                        <span class="font-bold text-slate-700">${task.priority}</span>
+                        <span class="font-bold text-slate-700">${urgInfo.icon} ${urgInfo.label}</span>
                     </div>
                 `;
                 
@@ -2570,6 +2572,7 @@ try {
         const itemsCount = parseInt(document.getElementById("o-items").value, 10) || 1;
         const description = document.getElementById("o-desc").value.trim();
         const priority = document.getElementById("o-priority").value;
+        const folder = priority; // Sync priority to folder
 
         let updatedTasks = [...state.orders];
 
@@ -2580,7 +2583,7 @@ try {
                 const existing = updatedTasks[idx];
                 updatedTasks[idx] = {
                     ...existing,
-                    id, title, department, assignee, amount, status, deliveryDate, itemsCount, description, priority
+                    id, title, department, assignee, amount, status, deliveryDate, itemsCount, description, priority, folder
                 };
                 if (status === "completed") {
                     updatedTasks[idx].completedAt = Date.now();
@@ -2591,7 +2594,7 @@ try {
             } else {
                 // AI 등으로 미리 ID가 생성되었지만 아직 목록에 없는 신규 업무인 경우
                 const newTask = {
-                    id, title, department, assignee, amount, status, deliveryDate, itemsCount, description, priority
+                    id, title, department, assignee, amount, status, deliveryDate, itemsCount, description, priority, folder
                 };
                 if (status === "completed") newTask.completedAt = Date.now();
                 updatedTasks.push(newTask);
@@ -2600,7 +2603,7 @@ try {
         } else {
             const newTask = {
                 id: "task_" + Date.now(),
-                title, department, assignee, amount, status, deliveryDate, itemsCount, description, priority
+                title, department, assignee, amount, status, deliveryDate, itemsCount, description, priority, folder
             };
             if (status === "completed") newTask.completedAt = Date.now();
             updatedTasks.push(newTask);
@@ -2679,9 +2682,6 @@ try {
         let filteredTasks = state.orders;
         
         filteredTasks = filteredTasks.filter(task => {
-            if(kanbanParaFilter !== 'all') {
-                if(task.folder !== kanbanParaFilter) return false;
-            }
 
             if (kanbanSearchQuery) {
                 const searchStr = `${task.title} ${task.description || ''} ${task.folder || ''}`.toLowerCase();
@@ -2696,12 +2696,11 @@ try {
             return true;
         });
 
-        const FOLDER_MAP = {
-            'none': { title: '미분류', icon: 'fa-file-lines' },
-            'projects': { title: 'Projects', icon: 'fa-folder-tree' },
-            'areas': { title: 'Areas', icon: 'fa-layer-group' },
-            'resources': { title: 'Resources', icon: 'fa-book' },
-            'archives': { title: 'Archives', icon: 'fa-box-archive' }
+        const URGENCY_MAP = {
+            'urgent_important':          { label: '긴급·중요',    bg: '#0f172a', text: 'white',      icon: '🔴', desc: 'Do it now' },
+            'not_urgent_important':      { label: '중요·여유',    bg: '#1d4ed8', text: 'white',      icon: '🔵', desc: 'Schedule it' },
+            'urgent_not_important':      { label: '긴급·위임',    bg: '#e0f2fe', text: 'slate-800',  icon: '🩵', desc: 'Delegate it' },
+            'not_urgent_not_important':  { label: '낮은 우선순위', bg: '#ffffff', text: 'slate-800', icon: '⬜', desc: 'Eliminate it' }
         };
 
         filteredTasks.forEach(task => {
@@ -2710,25 +2709,34 @@ try {
             if(st === "in_progress") st = "inprogress";
             if(st === "completed") st = "done";
             task.status = st;
-            if(!task.folder) task.folder = "none";
+            if(!task.folder || task.folder === 'none' || task.folder === 'projects' || task.folder === 'areas' || task.folder === 'resources' || task.folder === 'archives') {
+                task.folder = "not_urgent_not_important"; // fallback for old data
+            }
 
             const col = columns[task.status];
             if (!col) return;
 
             counters[task.status]++;
 
-            const folderInfo = FOLDER_MAP[task.folder] || FOLDER_MAP['none'];
+            const urgInfo = URGENCY_MAP[task.folder] || URGENCY_MAP['not_urgent_not_important'];
 
             const card = document.createElement("div");
             card.id = task.id;
             card.draggable = true;
-            card.className = `kanban-card bg-white p-3 rounded-lg border border-slate-200 cursor-pointer hover:shadow-md hover:border-blue-400 transition-all active:cursor-grabbing group relative mb-3 shadow-sm`;
+            card.className = `kanban-card p-3 rounded-lg border border-slate-200 cursor-pointer hover:shadow-md transition-all active:cursor-grabbing group relative mb-3 shadow-sm`;
+            card.style.backgroundColor = urgInfo.bg;
+            card.style.color = urgInfo.text === 'white' ? '#ffffff' : '#1e293b';
             
+            const titleColor = urgInfo.text === 'white' ? 'text-white' : 'text-slate-800';
+            const subColor = urgInfo.text === 'white' ? 'opacity-80 text-white' : 'text-slate-500';
+
             card.innerHTML = `
-                <h3 class="text-sm font-medium text-slate-800 leading-snug">${task.title}</h3>
-                <div class="flex items-center justify-between mt-3 text-xs text-slate-500">
-                    ${task.folder !== 'none' ? `<span class="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded text-slate-600"><i class="fa-solid ${folderInfo.icon} text-slate-400"></i> ${folderInfo.title}</span>` : '<span></span>'}
-                    ${task.description ? `<i class="fa-solid fa-file-lines text-slate-400"></i>` : ''}
+                <div class="flex justify-between items-start mb-1">
+                    <span class="text-[10px] font-bold opacity-80">${urgInfo.icon} ${urgInfo.label}</span>
+                </div>
+                <h3 class="text-sm font-semibold leading-snug ${titleColor}">${task.title}</h3>
+                <div class="flex items-center justify-end mt-3 text-xs ${subColor}">
+                    ${task.description ? `<i class="fa-solid fa-file-lines"></i>` : ''}
                 </div>
             `;
 
@@ -3561,7 +3569,11 @@ try {
             document.getElementById("task-detail-id").value = task.id;
             document.getElementById("task-detail-title").value = task.title || "";
             document.getElementById("task-detail-status").value = task.status || "inbox";
-            document.getElementById("task-detail-folder").value = task.folder || "none";
+            const tf = document.getElementById("task-detail-folder");
+            tf.value = task.folder || "not_urgent_not_important";
+            const urgInfo = URGENCY_MAP[tf.value] || URGENCY_MAP['not_urgent_not_important'];
+            const preview = document.getElementById("urgency-preview");
+            if (preview) preview.style.backgroundColor = urgInfo.bg;
             document.getElementById("task-detail-assignee").value = task.assignee || "";
             document.getElementById("task-detail-delivery").value = task.deliveryDate || "";
             
@@ -5069,7 +5081,6 @@ try {
 
     document.getElementById("task-detail-title")?.addEventListener("input", window.triggerAutoSave);
     document.getElementById("task-detail-status")?.addEventListener("change", window.triggerAutoSave);
-    document.getElementById("task-detail-folder")?.addEventListener("change", window.triggerAutoSave);
     document.getElementById("task-detail-assignee")?.addEventListener("input", window.triggerAutoSave);
     document.getElementById("task-detail-delivery")?.addEventListener("change", window.triggerAutoSave);
 
@@ -5083,7 +5094,7 @@ try {
             id: 'task_' + Date.now(),
             title: val,
             status: 'inbox',
-            folder: 'none',
+            folder: 'not_urgent_not_important',
             description: '',
             department: '공통',
             assignee: '담당자 미정',
@@ -5180,39 +5191,13 @@ try {
         }
     });
 
-    // Submenu toggles for PARA
-    const navOrdersBtn = document.getElementById("nav-orders");
-    const paraSubmenu = document.getElementById("para-submenu");
-    if (navOrdersBtn && paraSubmenu) {
-        navOrdersBtn.addEventListener("click", (e) => {
-            paraSubmenu.classList.toggle("hidden");
-        });
-    }
-
-    const mobileNavOrdersBtn = document.querySelector(".mobile-nav-btn[data-view='orders']");
-    const mobileParaSubmenu = document.getElementById("mobile-para-submenu");
-    if (mobileNavOrdersBtn && mobileParaSubmenu) {
-        mobileNavOrdersBtn.addEventListener("click", (e) => {
-            mobileParaSubmenu.classList.toggle("hidden");
-        });
-    }
-
-    document.querySelectorAll(".para-filter-btn, .mobile-para-filter-btn").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            kanbanParaFilter = btn.getAttribute("data-para");
-            
-            // UI visual update for active
-            document.querySelectorAll(".para-filter-btn, .mobile-para-filter-btn").forEach(b => {
-                b.classList.remove("bg-blue-600/20", "text-white");
-                b.classList.add("text-slate-400");
-            });
-            btn.classList.add("bg-blue-600/20", "text-white");
-            btn.classList.remove("text-slate-400");
-
-            renderKanbanBoard();
-        });
+    document.getElementById("task-detail-folder")?.addEventListener("change", (e) => {
+        window.triggerAutoSave();
+        const urgInfo = URGENCY_MAP[e.target.value] || URGENCY_MAP['not_urgent_not_important'];
+        const preview = document.getElementById("urgency-preview");
+        if (preview) {
+            preview.style.backgroundColor = urgInfo.bg;
+        }
     });
 
     // -------------------------------------------------------------
@@ -5313,7 +5298,7 @@ try {
                     <td class="py-3 px-4 text-slate-800 w-1/3 max-w-xs">
                         <div class="font-medium flex items-center flex-wrap gap-1">
                             <span>${task.title || "(제목 없음)"}</span>
-                            ${task.priority === "긴급" ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">긴급</span>' : ''}
+                            ${task.folder === "urgent_important" ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">긴급</span>' : ''}
                         </div>
                         <div class="text-xs text-slate-400 mt-1 truncate" title="${safeDescTooltip}">
                             ${plainDesc}

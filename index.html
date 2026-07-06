@@ -85,23 +85,6 @@
                     <i class="fa-solid fa-list-check w-5 text-center mr-3 text-purple-400"></i>
                     <span class="font-medium group-hover:text-white">프로젝트 & 업무 관리</span>
                 </a>
-                <div class="ml-9 mt-1 space-y-1 hidden" id="para-submenu">
-                    <a href="#" data-para="all" class="para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg group transition-colors text-sm text-slate-400 hover:text-white">
-                        <i class="fa-solid fa-search w-4 text-center mr-2 text-slate-500"></i> 전체 보기
-                    </a>
-                    <a href="#" data-para="projects" class="para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg group transition-colors text-sm text-slate-400 hover:text-white">
-                        <i class="fa-solid fa-folder-tree w-4 text-center mr-2 text-blue-400"></i> Projects (단기)
-                    </a>
-                    <a href="#" data-para="areas" class="para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg group transition-colors text-sm text-slate-400 hover:text-white">
-                        <i class="fa-solid fa-layer-group w-4 text-center mr-2 text-emerald-400"></i> Areas (영역)
-                    </a>
-                    <a href="#" data-para="resources" class="para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg group transition-colors text-sm text-slate-400 hover:text-white">
-                        <i class="fa-solid fa-book w-4 text-center mr-2 text-amber-400"></i> Resources (자료)
-                    </a>
-                    <a href="#" data-para="archives" class="para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg group transition-colors text-sm text-slate-400 hover:text-white">
-                        <i class="fa-solid fa-box-archive w-4 text-center mr-2 text-slate-500"></i> Archives (보관)
-                    </a>
-                </div>
             </div>
             <a href="#" id="nav-all-tasks" data-view="all-tasks" class="nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors mt-1">
                 <i class="fa-solid fa-table-list w-5 text-center mr-3 text-cyan-400"></i>
@@ -153,23 +136,6 @@
                     <i class="fa-solid fa-list-check w-5 text-center mr-3 text-purple-400"></i>
                     <span class="font-medium">프로젝트 & 업무 관리</span>
                 </a>
-                <div class="ml-9 mt-1 space-y-1 hidden" id="mobile-para-submenu">
-                    <a href="#" data-para="all" class="mobile-para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg transition-colors text-sm text-slate-400 hover:text-white">
-                        <i class="fa-solid fa-search w-4 text-center mr-2 text-slate-500"></i> 전체 보기
-                    </a>
-                    <a href="#" data-para="projects" class="mobile-para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg transition-colors text-sm text-slate-400 hover:text-white">
-                        <i class="fa-solid fa-folder-tree w-4 text-center mr-2 text-blue-400"></i> Projects (단기)
-                    </a>
-                    <a href="#" data-para="areas" class="mobile-para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg transition-colors text-sm text-slate-400 hover:text-white">
-                        <i class="fa-solid fa-layer-group w-4 text-center mr-2 text-emerald-400"></i> Areas (영역)
-                    </a>
-                    <a href="#" data-para="resources" class="mobile-para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg transition-colors text-sm text-slate-400 hover:text-white">
-                        <i class="fa-solid fa-book w-4 text-center mr-2 text-amber-400"></i> Resources (자료)
-                    </a>
-                    <a href="#" data-para="archives" class="mobile-para-filter-btn flex items-center px-3 py-1.5 hover:bg-slate-800 rounded-lg transition-colors text-sm text-slate-400 hover:text-white">
-                        <i class="fa-solid fa-box-archive w-4 text-center mr-2 text-slate-500"></i> Archives (보관)
-                    </a>
-                </div>
             </div>
             <a href="#" data-view="all-tasks" class="mobile-nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors mt-1">
                 <i class="fa-solid fa-table-list w-5 text-center mr-3 text-cyan-400"></i>
@@ -596,14 +562,14 @@
 
                                     <div>
                                         <label class="text-xs font-bold text-indigo-500 uppercase mb-1 flex items-center gap-1">
-                                            <i class="fa-solid fa-folder-tree"></i> 폴더 분류
+                                            긴급도 (아이젠하워)
                                         </label>
+                                        <div id="urgency-preview" class="w-full h-2 rounded-full mb-2 transition-colors"></div>
                                         <select id="task-detail-folder" class="w-full py-2 px-3 bg-indigo-50 border border-indigo-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-200 outline-none text-indigo-800 font-medium">
-                                            <option value="none">미분류</option>
-                                            <option value="projects">Projects (단기)</option>
-                                            <option value="areas">Areas (영역)</option>
-                                            <option value="resources">Resources (자료)</option>
-                                            <option value="archives">Archives (보관)</option>
+                                            <option value="urgent_important">🔴 긴급·중요 — Do it now</option>
+                                            <option value="not_urgent_important">🔵 중요·여유 — Schedule it</option>
+                                            <option value="urgent_not_important">🩵 긴급·위임 — Delegate it</option>
+                                            <option value="not_urgent_not_important" selected>⬜ 낮은 우선순위 — Eliminate it</option>
                                         </select>
                                     </div>
 
@@ -1276,9 +1242,10 @@
                     <div>
                         <label for="o-priority" class="block text-xs font-bold text-slate-500 mb-1.5 uppercase">우선순위</label>
                         <select id="o-priority" class="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
-                            <option value="보통">보통</option>
-                            <option value="긴급">긴급(D-3이내)</option>
-                            <option value="낮음">낮음</option>
+                            <option value="not_urgent_not_important">⬜ 낮은 우선순위</option>
+                            <option value="urgent_not_important">🩵 긴급·위임</option>
+                            <option value="not_urgent_important" selected>🔵 중요·여유 (기본)</option>
+                            <option value="urgent_important">🔴 긴급·중요</option>
                         </select>
                     </div>
                 </div>
