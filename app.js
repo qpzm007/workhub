@@ -1,4 +1,12 @@
 
+
+const URGENCY_MAP = {
+    'urgent_important':          { label: '긴급.중요', bg: '#0f172a', text: 'white',      icon: '🔴', desc: 'Do it now' },
+    'not_urgent_important':      { label: '중요.여유', bg: '#1d4ed8', text: 'white',      icon: '🔵', desc: 'Schedule it' },
+    'urgent_not_important':      { label: '긴급.위임', bg: '#e0f2fe', text: 'slate-800',  icon: '🩵', desc: 'Delegate it' },
+    'not_urgent_not_important':  { label: '여유.위임', bg: '#ffffff', text: 'slate-800', icon: '⬜', desc: 'Eliminate it' }
+};
+
 // --- Editor.js Setup & Expand Panel ---
 let editorInstance = null;
 const edjsParser = typeof editorjsHTML !== 'undefined' ? editorjsHTML({
@@ -2696,12 +2704,7 @@ try {
             return true;
         });
 
-        const URGENCY_MAP = {
-            'urgent_important':          { label: '긴급·중요',    bg: '#0f172a', text: 'white',      icon: '🔴', desc: 'Do it now' },
-            'not_urgent_important':      { label: '중요·여유',    bg: '#1d4ed8', text: 'white',      icon: '🔵', desc: 'Schedule it' },
-            'urgent_not_important':      { label: '긴급·위임',    bg: '#e0f2fe', text: 'slate-800',  icon: '🩵', desc: 'Delegate it' },
-            'not_urgent_not_important':  { label: '낮은 우선순위', bg: '#ffffff', text: 'slate-800', icon: '⬜', desc: 'Eliminate it' }
-        };
+
 
         filteredTasks.forEach(task => {
             let st = task.status;
