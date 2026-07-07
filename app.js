@@ -1134,7 +1134,7 @@ try {
     // -------------------------------------------------------------
     // 4. ROUTER / VIEW SWITCHING
     // -------------------------------------------------------------
-    function switchView(viewName, folderName = null) {
+    function switchView(viewName, folderName = null, targetPath = null) {
         const btnViewListEl = document.getElementById("btn-view-list");
         if (viewName !== "folders" && btnViewListEl) {
             btnViewListEl.click();
@@ -1148,6 +1148,9 @@ try {
         if (viewName !== "folders") {
             state.currentExplorerPath = "";
             localStorage.setItem("workhub_currentExplorerPath", "");
+        } else if (targetPath) {
+            state.currentExplorerPath = targetPath;
+            localStorage.setItem("workhub_currentExplorerPath", targetPath);
         } else if (folderName) {
             state.currentExplorerPath = folderName;
             localStorage.setItem("workhub_currentExplorerPath", folderName);
@@ -4203,9 +4206,8 @@ try {
                     <span class="text-xs text-blue-600 font-semibold hover:underline">이동</span>
                 `;
                 item.addEventListener("click", () => {
-                    state.currentExplorerPath = folder.relativePath;
                     state.activeFolder = folder.relativePath.split('/')[0];
-                    switchView("folders", state.activeFolder);
+                    switchView("folders", state.activeFolder, folder.relativePath);
                 });
                 return item;
             });

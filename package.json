@@ -1,6 +1,6 @@
 {
   "name": "workspace-hub",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Interactive Workspace Hub for integrated business management",
   "main": "index.html",
   "scripts": {
