@@ -1,6 +1,6 @@
 {
-  "version": "1.1.4",
+  "version": "1.1.8",
   "githubOwner": "qpzm007",
   "githubRepo": "workhub",
-  "releaseNotes": "v1.1.4 업데이트 적용됨: 긴급도 단계명칭 변경 (긴급.중요/중요.여유/긴급.위임/여유.위임) 및 긴급도 렌더링 버그 수정"
+  "releaseNotes": "v1.1.8: 버그 수정 (UI 로딩 오류 및 네트워크 기능 안정화)"
 }
