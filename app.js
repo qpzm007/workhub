@@ -526,99 +526,6 @@ try {
     if (btnDoUpdate) {
         btnDoUpdate.addEventListener('click', async () => {
             if (!_updateCheckData || !_updateCheckData.downloadUrl) return;
-            // ... (rest is same, wait, I can just inject my code here, before update checks or anywhere in DOMContentLoaded)
-            // It's safer to inject networkMembers logic globally.
-        });
-    }
-    
-    // --- Network Members & Selector Logic ---
-    window.updateNetworkMembersDropdown = function() {
-        const selector = document.getElementById("network-task-selector");
-        if (!selector) return;
-        
-        const currentValue = selector.value;
-        selector.innerHTML = `
-            <option value="local">내 업무 (Local)</option>
-            <option value="network_all">부서 전체 공유 (Shared)</option>
-        `;
-        (state.networkMembers || []).forEach(member => {
-            const opt = document.createElement("option");
-            opt.value = `network_user:${member}`;
-            opt.textContent = `${member} (Shared)`;
-            selector.appendChild(opt);
-        });
-        
-        if (Array.from(selector.options).some(o => o.value === currentValue)) {
-            selector.value = currentValue;
-        } else {
-            selector.value = "local";
-            state.isNetworkView = false;
-            state.networkAssignee = null;
-        }
-    };
-    
-    document.getElementById("btn-add-network-member")?.addEventListener("click", async () => {
-        const name = prompt("추가할 부서원 이름을 입력하세요 (예: 홍길동):");
-        if (!name || name.trim() === '') return;
-        const trimmed = name.trim();
-        if ((state.networkMembers || []).includes(trimmed)) return;
-        
-        if (!state.networkMembers) state.networkMembers = [];
-        state.networkMembers.push(trimmed);
-        
-        try {
-            await fetch('/api/network_members', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ members: state.networkMembers })
-            });
-            updateNetworkMembersDropdown();
-            showToast("부서원이 추가되었습니다.", "success");
-        } catch (e) {
-            console.error("Failed to add network member:", e);
-        }
-    });
-    
-    document.getElementById("network-task-selector")?.addEventListener("change", async (e) => {
-        const val = e.target.value;
-        if (val === "local") {
-            state.isNetworkView = false;
-            state.networkAssignee = null;
-        } else if (val === "network_all") {
-            state.isNetworkView = true;
-            state.networkAssignee = null;
-        } else if (val.startsWith("network_user:")) {
-            state.isNetworkView = true;
-            state.networkAssignee = val.split(":")[1];
-        }
-        
-        // Update input states
-        const qcInput = document.getElementById("quick-capture-input");
-        const aiBtn = document.getElementById("btn-ai-smart-capture");
-        if (qcInput) qcInput.disabled = state.isNetworkView;
-        if (aiBtn) aiBtn.disabled = state.isNetworkView;
-        
-        try {
-            let url = `${API_BASE}/tasks`;
-            if (state.isNetworkView) {
-                url += `?source=network`;
-                if (state.networkAssignee) {
-                    url += `&assignee=${encodeURIComponent(state.networkAssignee)}`;
-                }
-            }
-            const resTasks = await fetch(url).then(r => r.json());
-            state.orders = resTasks;
-            
-            updateStats();
-            if (typeof renderKanbanBoard === "function") renderKanbanBoard();
-            if (typeof renderAllTasksView === "function") renderAllTasksView();
-            
-            showToast(state.isNetworkView ? "네트워크 업무를 불러왔습니다. (읽기 전용)" : "내 업무를 불러왔습니다.", "info");
-        } catch (err) {
-            console.error("Failed to fetch tasks for selector:", err);
-            showToast("데이터를 불러오는데 실패했습니다.", "error");
-        }
-    });
             if (!confirm(`v${_updateCheckData.remoteVersion}으로 업데이트하시겠습니까?\n\n현재 파일은 자동으로 백업됩니다.\n업데이트 후 프로그램을 재시작해야 합니다.`)) return;
 
             const progressPanel = document.getElementById('update-progress-panel');
@@ -5955,5 +5862,93 @@ try {
     errDiv.innerHTML = '<strong>[앱 오류]</strong> ' + err.message + '<br><small>' + (err.stack || '').split('\n')[1] + '</small>';
     document.body.appendChild(errDiv);
 }
+});
+
+// --- Network Members & Selector Logic ---
+window.updateNetworkMembersDropdown = function() {
+    const selector = document.getElementById("network-task-selector");
+    if (!selector) return;
+    
+    const currentValue = selector.value;
+    selector.innerHTML = `
+        <option value="local">내 업무 (Local)</option>
+        <option value="network_all">부서 전체 공유 (Shared)</option>
+    `;
+    (state.networkMembers || []).forEach(member => {
+        const opt = document.createElement("option");
+        opt.value = `network_user:${member}`;
+        opt.textContent = `${member} (Shared)`;
+        selector.appendChild(opt);
+    });
+    
+    if (Array.from(selector.options).some(o => o.value === currentValue)) {
+        selector.value = currentValue;
+    } else {
+        selector.value = "local";
+        state.isNetworkView = false;
+        state.networkAssignee = null;
+    }
+};
+
+document.getElementById("btn-add-network-member")?.addEventListener("click", async () => {
+    const name = prompt("추가할 부서원 이름을 입력하세요 (예: 홍길동):");
+    if (!name || name.trim() === '') return;
+    const trimmed = name.trim();
+    if ((state.networkMembers || []).includes(trimmed)) return;
+    
+    if (!state.networkMembers) state.networkMembers = [];
+    state.networkMembers.push(trimmed);
+    
+    try {
+        await fetch('/api/network_members', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ members: state.networkMembers })
+        });
+        updateNetworkMembersDropdown();
+        showToast("부서원이 추가되었습니다.", "success");
+    } catch (e) {
+        console.error("Failed to add network member:", e);
+    }
+});
+
+document.getElementById("network-task-selector")?.addEventListener("change", async (e) => {
+    const val = e.target.value;
+    if (val === "local") {
+        state.isNetworkView = false;
+        state.networkAssignee = null;
+    } else if (val === "network_all") {
+        state.isNetworkView = true;
+        state.networkAssignee = null;
+    } else if (val.startsWith("network_user:")) {
+        state.isNetworkView = true;
+        state.networkAssignee = val.split(":")[1];
+    }
+    
+    const qcInput = document.getElementById("quick-capture-input");
+    const aiBtn = document.getElementById("btn-ai-smart-capture");
+    if (qcInput) qcInput.disabled = state.isNetworkView;
+    if (aiBtn) aiBtn.disabled = state.isNetworkView;
+    
+    try {
+        let url = `${API_BASE}/tasks`;
+        if (state.isNetworkView) {
+            url += `?source=network`;
+            if (state.networkAssignee) {
+                url += `&assignee=${encodeURIComponent(state.networkAssignee)}`;
+            }
+        }
+        const resTasks = await fetch(url).then(r => r.json());
+        state.orders = resTasks;
+        
+        updateStats();
+        if (typeof renderKanbanBoard === "function") renderKanbanBoard();
+        if (typeof renderAllTasksView === "function") renderAllTasksView();
+        
+        showToast(state.isNetworkView ? "네트워크 업무를 불러왔습니다. (읽기 전용)" : "내 업무를 불러왔습니다.", "info");
+    } catch (err) {
+        console.error("Failed to fetch tasks for selector:", err);
+        showToast("데이터를 불러오는데 실패했습니다.", "error");
+    }
 });
 
