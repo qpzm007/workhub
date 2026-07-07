@@ -279,7 +279,8 @@ async function initFilesystem() {
             const task = await dbTasks.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
             if (!task) return null;
             
-            const shortId = taskId.substring(0, 4);
+            // Use the last 4 characters of taskId as a unique short identifier
+            const shortId = taskId.slice(-4);
             const dateStr = (task.created_at || task.createdAt || new Date().toISOString()).split('T')[0];
             const safeTitle = (task.title || '제목없음').replace(/[<>:"/\\|?*]/g, '_');
             const expectedName = `${safeTitle}_${dateStr}_${shortId}`;

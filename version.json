@@ -1,6 +1,6 @@
 {
-  "version": "1.1.8",
+  "version": "1.1.9",
   "githubOwner": "qpzm007",
   "githubRepo": "workhub",
-  "releaseNotes": "v1.1.8: 버그 수정 (UI 로딩 오류 및 네트워크 기능 안정화)"
+  "releaseNotes": "v1.1.9: 새 업무 등록 시 다른 업무 폴더와 연결되는(폴더명 중복 매핑) 버그 수정"
 }
