@@ -143,8 +143,13 @@ function initEditor(initialData) {
                     }
                 }
             } : null
-        }
+    }
     });
+
+    // Network View State
+    state.isNetworkView = false;
+    state.networkAssignee = null;
+    state.networkMembers = [];
 }
 // ----------------------------------------
 
@@ -434,6 +439,9 @@ try {
             if (dbTasksInput) dbTasksInput.value = currentDbPathTasks;
             if (dbWorkCardsInput) dbWorkCardsInput.value = currentDbPathWorkCards;
             
+            state.networkMembers = data.networkMembers || [];
+            if (typeof updateNetworkMembersDropdown === "function") updateNetworkMembersDropdown();
+            
             updateSettingsStatus(currentApi, currentSync, currentDbPathTasks, currentDbPathWorkCards);
             updateCustomNamesUI(currentCustomNames);
 
@@ -518,6 +526,99 @@ try {
     if (btnDoUpdate) {
         btnDoUpdate.addEventListener('click', async () => {
             if (!_updateCheckData || !_updateCheckData.downloadUrl) return;
+            // ... (rest is same, wait, I can just inject my code here, before update checks or anywhere in DOMContentLoaded)
+            // It's safer to inject networkMembers logic globally.
+        });
+    }
+    
+    // --- Network Members & Selector Logic ---
+    window.updateNetworkMembersDropdown = function() {
+        const selector = document.getElementById("network-task-selector");
+        if (!selector) return;
+        
+        const currentValue = selector.value;
+        selector.innerHTML = `
+            <option value="local">내 업무 (Local)</option>
+            <option value="network_all">부서 전체 공유 (Shared)</option>
+        `;
+        (state.networkMembers || []).forEach(member => {
+            const opt = document.createElement("option");
+            opt.value = `network_user:${member}`;
+            opt.textContent = `${member} (Shared)`;
+            selector.appendChild(opt);
+        });
+        
+        if (Array.from(selector.options).some(o => o.value === currentValue)) {
+            selector.value = currentValue;
+        } else {
+            selector.value = "local";
+            state.isNetworkView = false;
+            state.networkAssignee = null;
+        }
+    };
+    
+    document.getElementById("btn-add-network-member")?.addEventListener("click", async () => {
+        const name = prompt("추가할 부서원 이름을 입력하세요 (예: 홍길동):");
+        if (!name || name.trim() === '') return;
+        const trimmed = name.trim();
+        if ((state.networkMembers || []).includes(trimmed)) return;
+        
+        if (!state.networkMembers) state.networkMembers = [];
+        state.networkMembers.push(trimmed);
+        
+        try {
+            await fetch('/api/network_members', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ members: state.networkMembers })
+            });
+            updateNetworkMembersDropdown();
+            showToast("부서원이 추가되었습니다.", "success");
+        } catch (e) {
+            console.error("Failed to add network member:", e);
+        }
+    });
+    
+    document.getElementById("network-task-selector")?.addEventListener("change", async (e) => {
+        const val = e.target.value;
+        if (val === "local") {
+            state.isNetworkView = false;
+            state.networkAssignee = null;
+        } else if (val === "network_all") {
+            state.isNetworkView = true;
+            state.networkAssignee = null;
+        } else if (val.startsWith("network_user:")) {
+            state.isNetworkView = true;
+            state.networkAssignee = val.split(":")[1];
+        }
+        
+        // Update input states
+        const qcInput = document.getElementById("quick-capture-input");
+        const aiBtn = document.getElementById("btn-ai-smart-capture");
+        if (qcInput) qcInput.disabled = state.isNetworkView;
+        if (aiBtn) aiBtn.disabled = state.isNetworkView;
+        
+        try {
+            let url = `${API_BASE}/tasks`;
+            if (state.isNetworkView) {
+                url += `?source=network`;
+                if (state.networkAssignee) {
+                    url += `&assignee=${encodeURIComponent(state.networkAssignee)}`;
+                }
+            }
+            const resTasks = await fetch(url).then(r => r.json());
+            state.orders = resTasks;
+            
+            updateStats();
+            if (typeof renderKanbanBoard === "function") renderKanbanBoard();
+            if (typeof renderAllTasksView === "function") renderAllTasksView();
+            
+            showToast(state.isNetworkView ? "네트워크 업무를 불러왔습니다. (읽기 전용)" : "내 업무를 불러왔습니다.", "info");
+        } catch (err) {
+            console.error("Failed to fetch tasks for selector:", err);
+            showToast("데이터를 불러오는데 실패했습니다.", "error");
+        }
+    });
             if (!confirm(`v${_updateCheckData.remoteVersion}으로 업데이트하시겠습니까?\n\n현재 파일은 자동으로 백업됩니다.\n업데이트 후 프로그램을 재시작해야 합니다.`)) return;
 
             const progressPanel = document.getElementById('update-progress-panel');
@@ -665,44 +766,44 @@ try {
 
     // PARA Method virtual folders
     const folderList = [
-        "0_Projects",
-        "1_Areas",
-        "2_Resources",
-        "3_Archives"
+        "0_프로젝트",
+        "1_영역",
+        "2_자료",
+        "3_보관소"
     ];
 
     // PARA folder metadata (icons, colors, descriptions)
     const PARA_FOLDER_META = {
-        "0_Projects": {
+        "0_프로젝트": {
             icon: "fa-solid fa-rocket",
             color: "text-blue-400",
             bgColor: "bg-blue-50",
             textColor: "text-blue-600",
-            label: "Projects",
+            label: "프로젝트",
             desc: "진행 중인 업무 (기한 있음)"
         },
-        "1_Areas": {
+        "1_영역": {
             icon: "fa-solid fa-bullseye",
             color: "text-emerald-400",
             bgColor: "bg-emerald-50",
             textColor: "text-emerald-600",
-            label: "Areas",
+            label: "영역",
             desc: "지속 관리 업무 (역할 기반)"
         },
-        "2_Resources": {
+        "2_자료": {
             icon: "fa-solid fa-book-open",
             color: "text-amber-400",
             bgColor: "bg-amber-50",
             textColor: "text-amber-600",
-            label: "Resources",
+            label: "자료",
             desc: "참고 자료 데이터베이스"
         },
-        "3_Archives": {
+        "3_보관소": {
             icon: "fa-solid fa-box-archive",
             color: "text-slate-400",
             bgColor: "bg-slate-100",
             textColor: "text-slate-600",
-            label: "Archives",
+            label: "보관소",
             desc: "완료·보관 (과거 기록)"
         }
     };
@@ -1315,10 +1416,10 @@ try {
         quickFoldersContainer.innerHTML = "";
 
         const folderThemes = {
-            "0_Projects":  { bg: "bg-blue-50",    text: "text-blue-600" },
-            "1_Areas":     { bg: "bg-emerald-50", text: "text-emerald-600" },
-            "2_Resources": { bg: "bg-amber-50",   text: "text-amber-600" },
-            "3_Archives":  { bg: "bg-slate-100",  text: "text-slate-600" },
+            "0_프로젝트":  { bg: "bg-blue-50",    text: "text-blue-600" },
+            "1_영역":     { bg: "bg-emerald-50", text: "text-emerald-600" },
+            "2_자료":     { bg: "bg-amber-50",   text: "text-amber-600" },
+            "3_보관소":    { bg: "bg-slate-100",  text: "text-slate-600" },
             // Legacy folders (dimmed)
             "00_수신함_Inbox":       { bg: "bg-blue-50",   text: "text-blue-400" },
             "01_기획_및_보고":     { bg: "bg-emerald-50", text: "text-emerald-400" },
@@ -1508,7 +1609,7 @@ try {
             });
         }
 
-        document.getElementById("dashboard-view-all-files").onclick = () => switchView("folders", "0_Projects");
+        document.getElementById("dashboard-view-all-files").onclick = () => switchView("folders", "0_프로젝트");
         document.getElementById("dashboard-go-kanban").onclick = () => switchView("orders");
     }
 
@@ -2578,11 +2679,11 @@ try {
             const f = fileList[i];
             const ext = f.name.split(".").pop().toLowerCase();
             
-            // PARA: default to 0_Projects
-            let targetFolder = "0_Projects";
-            if (ext === "hwp") targetFolder = "0_Projects";
-            else if (ext === "xlsx" || ext === "xls") targetFolder = "2_Resources";
-            else if (ext === "dwg") targetFolder = "0_Projects";
+            // PARA: default to 0_프로젝트
+            let targetFolder = "0_프로젝트";
+            if (ext === "hwp") targetFolder = "0_프로젝트";
+            else if (ext === "xlsx" || ext === "xls") targetFolder = "2_자료";
+            else if (ext === "dwg") targetFolder = "0_프로젝트";
 
             const payload = {
                 name: f.name,
@@ -2775,7 +2876,7 @@ try {
 
             const card = document.createElement("div");
             card.id = task.id;
-            card.draggable = true;
+            card.draggable = !state.isNetworkView;
             card.className = `kanban-card p-3 rounded-lg border border-slate-200 cursor-pointer hover:shadow-md transition-all active:cursor-grabbing group relative mb-3 shadow-sm`;
             card.style.backgroundColor = urgInfo.bg;
             card.style.color = urgInfo.text === 'white' ? '#ffffff' : '#1e293b';
@@ -2810,19 +2911,20 @@ try {
         });
 
         // Bind Drag over Columns safely without cloning
-        document.querySelectorAll(".kanban-column").forEach(column => {
-            column.ondragover = (e) => {
-                e.preventDefault();
-                column.classList.add("drag-over");
-            };
+        if (!state.isNetworkView) {
+            document.querySelectorAll(".kanban-column").forEach(column => {
+                column.ondragover = (e) => {
+                    e.preventDefault();
+                    column.classList.add("drag-over");
+                };
 
-            column.ondragleave = () => {
-                column.classList.remove("drag-over");
-            };
+                column.ondragleave = () => {
+                    column.classList.remove("drag-over");
+                };
 
-            column.ondrop = async (e) => {
-                e.preventDefault();
-                column.classList.remove("drag-over");
+                column.ondrop = async (e) => {
+                    e.preventDefault();
+                    column.classList.remove("drag-over");
                 
                 const cardId = e.dataTransfer.getData("text/plain") || e.dataTransfer.getData("text");
                 const targetStatus = column.getAttribute("data-status");
@@ -2841,6 +2943,7 @@ try {
                 }
             };
         });
+        }
     }
 
     // Timeline Tracker Logic
@@ -3637,8 +3740,33 @@ try {
 
             // --- Added for File Attachment UI ---
             state.activeTaskIdForFiles = task.id;
-            renderTaskFilesList(task.id);
+            if (!state.isNetworkView) renderTaskFilesList(task.id);
+            else {
+                document.getElementById("task-files-list").innerHTML = "<li class='text-xs text-slate-400'>네트워크 업무에서는 파일 조회가 비활성화됩니다.</li>";
+            }
             // ------------------------------------
+            
+            // Disable Inputs if Network View
+            const inputsToDisable = [
+                "task-detail-title", "task-detail-status", "task-detail-folder", 
+                "task-detail-assignee", "task-detail-delivery", "fs-timeline-input",
+                "btn-fs-task-save", "btn-fs-add-timeline"
+            ];
+            inputsToDisable.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = state.isNetworkView;
+                    if (state.isNetworkView) el.classList.add("opacity-60", "cursor-not-allowed");
+                    else el.classList.remove("opacity-60", "cursor-not-allowed");
+                }
+            });
+            
+            // Folder Button Logic
+            if (!state.isNetworkView) checkAndUpdateFolderButton(task.id);
+            else {
+                const btn = document.getElementById("btn-fs-task-folder-create");
+                if (btn) btn.classList.add("hidden");
+            }
 
             modal.classList.remove("hidden");
             // small delay for transition
@@ -3653,6 +3781,38 @@ try {
         }
     }
     window.openTaskDetail = openTaskDetail; // EXPOSE TO WINDOW FOR PLUGINS
+
+    async function checkAndUpdateFolderButton(taskId) {
+        const btn = document.getElementById("btn-fs-task-folder-create");
+        if (!btn) return;
+        btn.classList.add("hidden");
+        try {
+            const res = await fetch(`${API_BASE}/tasks/${taskId}/folder`);
+            const info = await res.json();
+            btn.classList.remove("hidden");
+            if (info.exists) {
+                btn.innerHTML = `<i class="fa-solid fa-folder-open mr-1"></i>폴더 열기`;
+                btn.className = "px-4 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-bold shadow hover:bg-slate-300 transition-colors";
+                btn.onclick = async () => {
+                    await fetch(`${API_BASE}/files/open-path`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ absolutePath: info.path })
+                    });
+                };
+            } else {
+                btn.innerHTML = `<i class="fa-solid fa-folder-plus mr-1"></i>폴더 생성`;
+                btn.className = "px-4 py-2 bg-teal-500 text-white rounded-lg text-sm font-bold shadow hover:bg-teal-600 transition-colors";
+                btn.onclick = async () => {
+                    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i>생성 중...`;
+                    await fetch(`${API_BASE}/tasks/${taskId}/folder?create=true`);
+                    checkAndUpdateFolderButton(taskId);
+                };
+            }
+        } catch(e) {
+            console.error("Folder check error:", e);
+        }
+    }
 
     // Timeline Add button logic
     document.getElementById("btn-fs-add-timeline").addEventListener("click", async () => {
@@ -3940,7 +4100,7 @@ try {
         // Persist link file via API
         const task = state.orders.find(o => o.id === taskId);
         const statusFolder = task ? getTaskStatusFolder(task.status) : "01_대기";
-        const targetFolder = `05_업무_연관_파일_Task_Files/${statusFolder}/${taskId}`;
+        const targetFolder = `TASK_FOLDER/${taskId}`;
         
         const payload = {
             name: `[연동]_${itemName}.txt`,
@@ -4759,7 +4919,7 @@ try {
 
         const task = state.orders.find(o => o.id === taskId);
         const statusFolder = task ? getTaskStatusFolder(task.status) : "01_대기";
-        const targetFolder = `05_업무_연관_파일_Task_Files/${statusFolder}/${taskId}`;
+        const targetFolder = `TASK_FOLDER/${taskId}`;
 
         try {
             const res = await fetch(`${API_BASE}/dir?path=${encodeURIComponent(targetFolder)}`);
@@ -4911,7 +5071,7 @@ try {
         let successCount = 0;
         const task = state.orders.find(o => o.id === taskId);
         const statusFolder = task ? getTaskStatusFolder(task.status) : "01_대기";
-        const targetFolder = `05_업무_연관_파일_Task_Files/${statusFolder}/${taskId}`;
+        const targetFolder = `TASK_FOLDER/${taskId}`;
 
         for (let i = 0; i < fileList.length; i++) {
             const f = fileList[i];
@@ -4960,7 +5120,7 @@ try {
             if (sanitized) {
                 const task = state.orders.find(o => o.id === taskId);
                 const statusFolder = task ? getTaskStatusFolder(task.status) : "01_대기";
-                const targetFolder = `05_업무_연관_파일_Task_Files/${statusFolder}/${taskId}`;
+                const targetFolder = `TASK_FOLDER/${taskId}`;
                 const payload = {
                     name: sanitized,
                     folder: targetFolder,
@@ -5320,6 +5480,10 @@ try {
             };
             const folderLabels = {
                 "none": "미분류",
+                "0_프로젝트": "프로젝트",
+                "1_영역":     "영역",
+                "2_자료":     "자료",
+                "3_보관소":    "보관소",
                 "0_Projects":  "프로젝트",
                 "1_Areas":     "영역",
                 "2_Resources": "자료",

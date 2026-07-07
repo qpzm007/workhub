@@ -36,7 +36,7 @@ app.use(express.static(__dirname));
 
 // Serve editor images dynamically to respect DESKTOP_ROOT changes
 app.get('/images/:filename', (req, res) => {
-    const filePath = path.join(DESKTOP_ROOT, '05_업무_연관_파일_Task_Files', 'Editor_Images', req.params.filename);
+    const filePath = path.join(DESKTOP_ROOT, 'Editor_Images', req.params.filename);
     if (fs.existsSync(filePath)) {
         res.sendFile(filePath);
     } else {
@@ -44,16 +44,17 @@ app.get('/images/:filename', (req, res) => {
     }
 });
 
-// Serve timeline screenshot images stored in task folders
-app.get('/api/timeline-images/:taskId/:filename', (req, res) => {
+app.get('/api/timeline-images/:taskId/:filename', async (req, res) => {
     const { taskId, filename } = req.params;
-    const taskFilesRoot = path.join(DESKTOP_ROOT || __dirname, '05_업무_연관_파일_Task_Files');
-    for (const sub of Object.values(TASK_STATUS_FOLDERS)) {
-        const imgPath = path.join(taskFilesRoot, sub, taskId, filename);
-        if (fs.existsSync(imgPath)) {
-            return res.sendFile(imgPath);
+    
+    try {
+        const folderInfo = await global.resolveTaskFolder(taskId, false);
+        if (folderInfo && folderInfo.exists) {
+            const imgPath = path.join(folderInfo.path, filename);
+            if (fs.existsSync(imgPath)) return res.sendFile(imgPath);
         }
-    }
+    } catch(e) {}
+    
     // Also check timeline-screenshots fallback folder
     const fallbackPath = path.join(__dirname, 'WorkHub_DB', 'timeline-screenshots', taskId, filename);
     if (fs.existsSync(fallbackPath)) {
@@ -71,7 +72,7 @@ app.post('/api/images/upload', (req, res) => {
         const { filename, base64 } = req.body;
         if (!filename || !base64) return res.status(400).json({ error: "Missing data" });
 
-        const targetFolder = path.join(DESKTOP_ROOT, '05_업무_연관_파일_Task_Files', 'Editor_Images');
+        const targetFolder = path.join(DESKTOP_ROOT, 'Editor_Images');
         if (!fs.existsSync(targetFolder)) {
             fs.mkdirSync(targetFolder, { recursive: true });
         }
@@ -105,6 +106,7 @@ let globalSettings = {
     desktopSyncPath: require('os').homedir() + '\\Desktop\\JKP_WorkHub_Files',
     dbPathTasks: '',
     dbPathWorkCards: '',
+    networkMembers: [],
     customNames: {
         dashboard: '대시보드',
         search: '통합 검색 (Everything)',
@@ -131,6 +133,7 @@ if (fs.existsSync(SETTINGS_FILE)) {
         globalSettings.desktopSyncPath = loaded.desktopSyncPath !== undefined ? loaded.desktopSyncPath : globalSettings.desktopSyncPath;
         globalSettings.dbPathTasks = loaded.dbPathTasks || '';
         globalSettings.dbPathWorkCards = loaded.dbPathWorkCards || '';
+        globalSettings.networkMembers = loaded.networkMembers || [];
         globalSettings.customNames = loaded.customNames || globalSettings.customNames;
         globalSettings.userFolderSchema = loaded.userFolderSchema || globalSettings.userFolderSchema;
     } catch(e) { console.error("Failed to load settings.json", e); }
@@ -152,11 +155,10 @@ function invalidateCache() {
 }
 
 const DEFAULT_FOLDERS = [
-    "0_Projects",
-    "1_Areas",
-    "2_Resources",
-    "3_Archives",
-    "05_업무_연관_파일_Task_Files"
+    "0_프로젝트",
+    "1_영역",
+    "2_자료",
+    "3_보관소"
 ];
 
 // Helper to format file sizes
@@ -269,61 +271,57 @@ async function initFilesystem() {
         await seedDatabaseFiles();
 
         // 4.5 Seed/Migrate task folders
-        try {
-            const tasks = await dbTasks.all('SELECT * FROM tasks');
-            if (DESKTOP_ROOT && tasks && tasks.length > 0) {
-                const taskFilesRoot = path.join(DESKTOP_ROOT, "05_업무_연관_파일_Task_Files");
-                
-                // Ensure state folders exist
-                Object.values(TASK_STATUS_FOLDERS).forEach(sub => {
-                    const subPath = path.join(taskFilesRoot, sub);
-                    if (!fs.existsSync(subPath)) {
-                        fs.mkdirSync(subPath, { recursive: true });
-                        console.log(`Created status subfolder: ${sub}`);
+        // Migration disabled for new logic.
+        
+        // Helper to resolve task folder
+        async function resolveTaskFolder(taskId, create = false) {
+            if (!taskId) return null;
+            const task = await dbTasks.get('SELECT * FROM tasks WHERE id = ?', [taskId]);
+            if (!task) return null;
+            
+            const shortId = taskId.substring(0, 4);
+            const dateStr = (task.created_at || task.createdAt || new Date().toISOString()).split('T')[0];
+            const safeTitle = (task.title || '제목없음').replace(/[<>:"/\\|?*]/g, '_');
+            const expectedName = `${safeTitle}_${dateStr}_${shortId}`;
+            
+            let actualName = expectedName;
+            if (fs.existsSync(DESKTOP_ROOT)) {
+                const items = fs.readdirSync(DESKTOP_ROOT);
+                for (const item of items) {
+                    const fullPath = path.join(DESKTOP_ROOT, item);
+                    if (fs.statSync(fullPath).isDirectory() && item.endsWith(`_${shortId}`)) {
+                        actualName = item;
+                        break;
                     }
-                });
-
-                tasks.forEach(task => {
-                    if (!task.id) return;
-                    const correctSub = getStatusFolder(task.status);
-                    const targetPath = path.join(taskFilesRoot, correctSub, task.id);
-                    
-                    // Check if it already exists in the correct location
-                    if (fs.existsSync(targetPath)) {
-                        return; // Already in correct location
-                    }
-                    
-                    // Check if it exists in the old root location (migration from old version)
-                    const oldRootPath = path.join(taskFilesRoot, task.id);
-                    if (fs.existsSync(oldRootPath)) {
-                        fs.renameSync(oldRootPath, targetPath);
-                        console.log(`[MIGRATE] Moved task folder from root to status folder: ${task.id} -> ${correctSub}`);
-                        return;
-                    }
-                    
-                    // Check if it exists in other state folders (out of sync)
-                    let foundAndMoved = false;
-                    for (const otherStatus of Object.keys(TASK_STATUS_FOLDERS)) {
-                        if (otherStatus === task.status) continue;
-                        const otherSub = getStatusFolder(otherStatus);
-                        const otherPath = path.join(taskFilesRoot, otherSub, task.id);
-                        if (fs.existsSync(otherPath)) {
-                            fs.renameSync(otherPath, targetPath);
-                            console.log(`[MIGRATE] Moved task folder between status folders: ${task.id} (${otherSub} -> ${correctSub})`);
-                            foundAndMoved = true;
-                            break;
-                        }
-                    }
-                    
-                    // If not found anywhere, create a new folder in the correct state folder
-                    if (!foundAndMoved) {
-                        fs.mkdirSync(targetPath, { recursive: true });
-                        console.log(`[SEED] Created new task folder under ${correctSub}: ${task.id}`);
-                    }
-                });
+                }
             }
-        } catch (e) {
-            console.error("Error seeding task folders:", e);
+            
+            const folderPath = path.join(DESKTOP_ROOT, actualName);
+            if (create && !fs.existsSync(folderPath)) {
+                fs.mkdirSync(folderPath, { recursive: true });
+            }
+            return { name: actualName, path: folderPath, exists: fs.existsSync(folderPath) };
+        }
+
+        // Expose resolveTaskFolder globally so routes can use it
+        global.resolveTaskFolder = resolveTaskFolder;
+        
+        // Define endpoints for task folder resolution (only if not already defined)
+        let routeExists = false;
+        if (app._router && app._router.stack) {
+            routeExists = app._router.stack.some(r => r.route && r.route.path === '/api/tasks/:id/folder');
+        }
+        if (!routeExists) {
+            app.get('/api/tasks/:id/folder', async (req, res) => {
+                try {
+                    const create = req.query.create === 'true';
+                    const info = await global.resolveTaskFolder(req.params.id, create);
+                    if (!info) return res.status(404).json({ error: "Task not found" });
+                    res.json(info);
+                } catch (err) {
+                    res.status(500).json({ error: err.message });
+                }
+            });
         }
 
         // 5. Seed actual files on the desktop folder if empty
@@ -336,103 +334,135 @@ async function initFilesystem() {
 
 
 async function openDatabaseConnections() {
-    // Close existing connections if they are open and not equal to db
-    if (dbTasks && dbTasks !== db) {
-        try { await dbTasks.close(); } catch(e) {}
-    }
-    if (dbWorkCards && dbWorkCards !== db) {
-        try { await dbWorkCards.close(); } catch(e) {}
-    }
+    if (dbTasks && dbTasks !== db) try { await dbTasks.close(); } catch(e) {}
+    if (dbWorkCards && dbWorkCards !== db) try { await dbWorkCards.close(); } catch(e) {}
+    if (global.dbNetworkTasks) try { await global.dbNetworkTasks.close(); } catch(e) {}
     
-    // Resolve tasks path
+    // Default Tasks DB
+    const defaultTasksPath = path.join(DB_DIR, 'tasks.sqlite');
+    dbTasks = await open({
+        filename: defaultTasksPath,
+        driver: sqlite3.Database
+    });
+    
+    // Default WorkCards DB
+    const defaultWorkCardsPath = path.join(DB_DIR, 'workcards.sqlite');
+    dbWorkCards = await open({
+        filename: defaultWorkCardsPath,
+        driver: sqlite3.Database
+    });
+    
+    // Network Tasks DB
     if (globalSettings.dbPathTasks) {
-        const tasksDir = path.dirname(globalSettings.dbPathTasks);
-        if (!fs.existsSync(tasksDir)) {
-            fs.mkdirSync(tasksDir, { recursive: true });
+        const netDir = path.dirname(globalSettings.dbPathTasks);
+        if (!fs.existsSync(netDir)) {
+            try { fs.mkdirSync(netDir, { recursive: true }); } catch(e){}
         }
-        dbTasks = await open({
+        global.dbNetworkTasks = await open({
             filename: globalSettings.dbPathTasks,
             driver: sqlite3.Database
         });
-        console.log(`Connected to Tasks DB: ${globalSettings.dbPathTasks}`);
+        console.log(`Connected to Network Tasks DB: ${globalSettings.dbPathTasks}`);
     } else {
-        dbTasks = db;
+        global.dbNetworkTasks = null;
     }
     
-    // Resolve workcards path
-    if (globalSettings.dbPathWorkCards) {
-        const wcDir = path.dirname(globalSettings.dbPathWorkCards);
-        if (!fs.existsSync(wcDir)) {
-            fs.mkdirSync(wcDir, { recursive: true });
-        }
-        dbWorkCards = await open({
-            filename: globalSettings.dbPathWorkCards,
-            driver: sqlite3.Database
-        });
-        console.log(`Connected to WorkCards DB: ${globalSettings.dbPathWorkCards}`);
-    } else {
-        dbWorkCards = db;
-    }
+    // WorkCards DB (Network sharing ignored per user request, just kept separated)
     
-    // Ensure tables exist in all databases
     await ensureTablesExist();
+    await performSqliteMigration();
 }
 
 async function ensureTablesExist() {
-    // 1. In Tasks DB: tasks & shared_assets
-    await dbTasks.exec(`
-        CREATE TABLE IF NOT EXISTS shared_assets (
-            id TEXT PRIMARY KEY, name TEXT, assetNumber TEXT, category TEXT, format TEXT,
-            ownerName TEXT, status TEXT, description TEXT
-        );
-        CREATE TABLE IF NOT EXISTS tasks (
-            id TEXT PRIMARY KEY, title TEXT, department TEXT, assignee TEXT, amount INTEGER,
-            status TEXT, deliveryDate TEXT, itemsCount INTEGER, description TEXT, priority TEXT, folder TEXT, completedAt INTEGER, timeline TEXT
-        );
-    `);
+    const dbsToInit = [dbTasks];
+    if (global.dbNetworkTasks) dbsToInit.push(global.dbNetworkTasks);
     
-    try {
-        await dbTasks.exec('ALTER TABLE tasks ADD COLUMN folder TEXT');
-    } catch(e) {}
-    try {
-        await dbTasks.exec('ALTER TABLE tasks ADD COLUMN completedAt INTEGER');
-    } catch(e) {}
-    try {
-        await dbTasks.exec('ALTER TABLE tasks ADD COLUMN timeline TEXT');
-    } catch(e) {}
+    for (const d of dbsToInit) {
+        await d.exec(`
+            CREATE TABLE IF NOT EXISTS shared_assets (
+                id TEXT PRIMARY KEY, name TEXT, assetNumber TEXT, category TEXT, format TEXT,
+                ownerName TEXT, status TEXT, description TEXT
+            );
+            CREATE TABLE IF NOT EXISTS tasks (
+                id TEXT PRIMARY KEY, title TEXT, department TEXT, assignee TEXT, amount INTEGER,
+                status TEXT, deliveryDate TEXT, itemsCount INTEGER, description TEXT, priority TEXT, folder TEXT, completedAt INTEGER, timeline TEXT
+            );
+        `);
+        try { await d.exec('ALTER TABLE tasks ADD COLUMN folder TEXT'); } catch(e) {}
+        try { await d.exec('ALTER TABLE tasks ADD COLUMN completedAt INTEGER'); } catch(e) {}
+        try { await d.exec('ALTER TABLE tasks ADD COLUMN timeline TEXT'); } catch(e) {}
+    }
 
-    // 2. In WorkCards DB: work_card_ledger & partners
     await dbWorkCards.exec(`
         CREATE TABLE IF NOT EXISTS partners (
             id TEXT PRIMARY KEY, name TEXT, code TEXT, type TEXT, ceo TEXT, phone TEXT, email TEXT,
             address TEXT, registrationNumber TEXT, rating INTEGER, notes TEXT, department TEXT
         );
         CREATE TABLE IF NOT EXISTS work_card_ledger (
-            card_id TEXT PRIMARY KEY,
-            user_id TEXT,
-            name TEXT NOT NULL,
-            company TEXT,
-            position TEXT,
-            mobile TEXT,
-            phone TEXT,
-            email TEXT,
-            fax TEXT,
-            address TEXT,
-            website_url TEXT,
-            sns TEXT,
-            image_front_base64 TEXT,
-            image_back_base64 TEXT,
-            tags TEXT,
-            relationship TEXT,
-            rating INTEGER,
-            meet_location TEXT,
-            memo TEXT,
-            is_shared BOOLEAN,
-            raw_ocr_text TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            card_id TEXT PRIMARY KEY, user_id TEXT, name TEXT NOT NULL, company TEXT,
+            position TEXT, mobile TEXT, phone TEXT, email TEXT, fax TEXT, address TEXT,
+            website_url TEXT, sns TEXT, image_front_base64 TEXT, image_back_base64 TEXT,
+            tags TEXT, relationship TEXT, rating INTEGER, meet_location TEXT, memo TEXT,
+            is_shared BOOLEAN, raw_ocr_text TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
     `);
+}
+
+async function performSqliteMigration() {
+    try {
+        const oldTasks = await db.all("SELECT * FROM sqlite_master WHERE type='table' AND name='tasks'");
+        if (oldTasks.length > 0) {
+            const tasksData = await db.all("SELECT * FROM tasks");
+            if (tasksData.length > 0) {
+                for (let t of tasksData) {
+                    await dbTasks.run('INSERT OR IGNORE INTO tasks (id, title, department, assignee, amount, status, deliveryDate, itemsCount, description, priority, folder, completedAt, timeline) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                        [t.id, t.title, t.department, t.assignee, t.amount, t.status, t.deliveryDate, t.itemsCount, t.description, t.priority, t.folder, t.completedAt, t.timeline]);
+                }
+                console.log(`Migrated ${tasksData.length} tasks to tasks.sqlite`);
+            }
+            await db.run("DROP TABLE tasks");
+        }
+        
+        const oldWorkCards = await db.all("SELECT * FROM sqlite_master WHERE type='table' AND name='work_card_ledger'");
+        if (oldWorkCards.length > 0) {
+            const wcData = await db.all("SELECT * FROM work_card_ledger");
+            if (wcData.length > 0) {
+                for (let w of wcData) {
+                    await dbWorkCards.run('INSERT OR IGNORE INTO work_card_ledger (card_id, user_id, name, company, position, mobile, phone, email, fax, address, website_url, sns, image_front_base64, image_back_base64, tags, relationship, rating, meet_location, memo, is_shared, raw_ocr_text, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                        [w.card_id, w.user_id, w.name, w.company, w.position, w.mobile, w.phone, w.email, w.fax, w.address, w.website_url, w.sns, w.image_front_base64, w.image_back_base64, w.tags, w.relationship, w.rating, w.meet_location, w.memo, w.is_shared, w.raw_ocr_text, w.created_at, w.updated_at]);
+                }
+                console.log(`Migrated ${wcData.length} work cards to workcards.sqlite`);
+            }
+            await db.run("DROP TABLE work_card_ledger");
+        }
+
+        const oldPartners = await db.all("SELECT * FROM sqlite_master WHERE type='table' AND name='partners'");
+        if (oldPartners.length > 0) {
+            const pData = await db.all("SELECT * FROM partners");
+            if (pData.length > 0) {
+                for (let p of pData) {
+                    await dbWorkCards.run('INSERT OR IGNORE INTO partners (id, name, code, type, ceo, phone, email, address, registrationNumber, rating, notes, department) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                        [p.id, p.name, p.code, p.type, p.ceo, p.phone, p.email, p.address, p.registrationNumber, p.rating, p.notes, p.department]);
+                }
+            }
+            await db.run("DROP TABLE partners");
+        }
+
+        const oldAssets = await db.all("SELECT * FROM sqlite_master WHERE type='table' AND name='shared_assets'");
+        if (oldAssets.length > 0) {
+            const aData = await db.all("SELECT * FROM shared_assets");
+            if (aData.length > 0) {
+                for (let a of aData) {
+                    await dbTasks.run('INSERT OR IGNORE INTO shared_assets (id, name, assetNumber, category, format, ownerName, status, description) VALUES (?,?,?,?,?,?,?,?)',
+                        [a.id, a.name, a.assetNumber, a.category, a.format, a.ownerName, a.status, a.description]);
+                }
+            }
+            await db.run("DROP TABLE shared_assets");
+        }
+    } catch(e) {
+        console.error("Migration error:", e);
+    }
 }
 
 async function migrateJsonToSqlite() {
@@ -944,14 +974,23 @@ app.get('/api/folders/all', (req, res) => {
 });
 
 // 2. FILE UPLOAD (SIMULATE/CREATE REAL FILE ON DISK)
-app.post('/api/files/upload', (req, res) => {
+app.post('/api/files/upload', async (req, res) => {
     try {
         const { name, folder, content } = req.body;
         if (!name || !folder) {
             return res.status(400).json({ error: "Missing name or folder parameter." });
         }
 
-        const targetFolder = safeResolvePath(folder);
+        let folderName = folder;
+        if (folderName && folderName.startsWith('TASK_FOLDER/')) {
+            const taskId = folderName.split('/')[1];
+            if (taskId && global.resolveTaskFolder) {
+                const info = await global.resolveTaskFolder(taskId, true);
+                if (info && info.name) folderName = info.name;
+            }
+        }
+
+        const targetFolder = safeResolvePath(folderName);
         if (!fs.existsSync(targetFolder)) {
             fs.mkdirSync(targetFolder, { recursive: true });
         }
@@ -969,30 +1008,20 @@ app.post('/api/files/upload', (req, res) => {
     }
 });
 
-app.post('/api/files/uploadImage', express.json({limit: '50mb'}), (req, res) => {
+app.post('/api/files/uploadImage', express.json({limit: '50mb'}), async (req, res) => {
     try {
         const { taskId, filename, base64 } = req.body;
         if (!taskId || !filename || !base64) {
             return res.status(400).json({ error: "Missing required parameters." });
         }
 
-        // Try to save to task folder, fallback to WorkHub_DB/timeline-screenshots
         let targetFolder = null;
-        if (DESKTOP_ROOT) {
-            const taskFilesRoot = path.join(DESKTOP_ROOT, "05_업무_연관_파일_Task_Files");
-            for (const sub of Object.values(TASK_STATUS_FOLDERS)) {
-                const subPath = path.join(taskFilesRoot, sub, taskId);
-                if (fs.existsSync(subPath)) {
-                    targetFolder = subPath;
-                    break;
-                }
-            }
-            if (!targetFolder) {
-                targetFolder = path.join(taskFilesRoot, TASK_STATUS_FOLDERS['todo'] || '01_대기', taskId);
-                fs.mkdirSync(targetFolder, { recursive: true });
-            }
-        } else {
-            // Fallback: save in WorkHub_DB
+        if (DESKTOP_ROOT && global.resolveTaskFolder) {
+            const info = await global.resolveTaskFolder(taskId, true);
+            if (info && info.path) targetFolder = info.path;
+        }
+        
+        if (!targetFolder) {
             targetFolder = path.join(__dirname, 'WorkHub_DB', 'timeline-screenshots', taskId);
             fs.mkdirSync(targetFolder, { recursive: true });
         }
@@ -1471,19 +1500,19 @@ app.post('/api/para/generate', async (req, res) => {
 
         const prompt = `당신은 사용자의 업무 스타일과 직무 설명을 바탕으로 PARA(Projects, Areas, Resources, Archives) 방법론에 맞춘 폴더 구조를 설계해주는 AI 비서입니다.
 반드시 다음 4개의 최상위 폴더를 유지해야 합니다:
-0_Projects
-1_Areas
-2_Resources
-3_Archives
+0_프로젝트
+1_영역
+2_자료
+3_보관소
 
 사용자의 설명을 분석하여 각 최상위 폴더 아래에 적절한 하위 폴더들을 생성하세요. (최대 2 depth)
 응답은 오직 생성해야 할 폴더들의 상대 경로 문자열 배열을 포함하는 순수 JSON 형식이어야 합니다. 마크다운 태그(\`\`\`json 등)나 다른 텍스트를 절대 포함하지 마세요.
 예시:
 [
-  "0_Projects/[2026-07]_상반기_결산",
-  "1_Areas/급여_및_인사관리",
-  "2_Resources/세법_개정_참고자료",
-  "3_Archives/_임시보관"
+  "0_프로젝트/[2026-07]_상반기_결산",
+  "1_영역/급여_및_인사관리",
+  "2_자료/세법_개정_참고자료",
+  "3_보관소/_임시보관"
 ]
 
 사용자 업무 설명:
@@ -1662,7 +1691,24 @@ app.post('/api/shared-assets', async (req, res) => {
 // 7. TASKS DB APIs
 app.get('/api/tasks', async (req, res) => {
     try {
-        const tasks = await dbTasks.all('SELECT * FROM tasks');
+        const source = req.query.source;
+        const assigneeFilter = req.query.assignee;
+        
+        let targetDb = dbTasks;
+        if (source === 'network') {
+            if (!global.dbNetworkTasks) {
+                return res.json([]); // No network DB configured
+            }
+            targetDb = global.dbNetworkTasks;
+        }
+
+        let tasks = [];
+        if (assigneeFilter) {
+            tasks = await targetDb.all('SELECT * FROM tasks WHERE assignee = ?', [assigneeFilter]);
+        } else {
+            tasks = await targetDb.all('SELECT * FROM tasks');
+        }
+
         tasks.forEach(t => {
             try {
                 if (t.timeline) t.timeline = JSON.parse(t.timeline);

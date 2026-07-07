@@ -425,6 +425,17 @@
                             <i class="fa-solid fa-wand-magic-sparkles"></i>
                             <span class="hidden sm:inline">AI 자동 분류</span>
                         </button>
+                        
+                        <div class="flex items-center gap-1 border-l pl-3 ml-1 border-slate-200">
+                            <select id="network-task-selector" class="pl-3 pr-8 py-2.5 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm cursor-pointer transition-all h-[46px]">
+                                <option value="local">내 업무 (Local)</option>
+                                <option value="network_all">부서 전체 공유 (Shared)</option>
+                                <!-- Dynamic options here -->
+                            </select>
+                            <button id="btn-add-network-member" type="button" class="px-3 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 rounded-lg text-sm font-bold shadow-sm transition-all h-[46px]" title="부서원 추가">
+                                <i class="fa-solid fa-user-plus"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -500,6 +511,7 @@
                                 <i class="fa-solid fa-clock text-blue-500"></i> 타임트래커 (업무 상세)
                             </h2>
                             <div class="flex items-center space-x-2">
+                                <button id="btn-fs-task-folder-create" class="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-bold shadow hover:bg-emerald-600 transition-colors hidden"><i class="fa-solid fa-folder-plus mr-1"></i>폴더 생성</button>
                                 <button id="btn-fs-task-save" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow hover:bg-blue-700 transition-colors">저장 후 닫기</button>
                                 <button id="btn-close-fs-task" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
                                     <i class="fa-solid fa-xmark text-xl"></i>
@@ -660,10 +672,10 @@
                                     <th class="py-2 px-4 font-semibold">
                                         <select id="all-tasks-filter-folder" class="bg-transparent border-none text-xs uppercase font-semibold text-slate-500 focus:ring-0 cursor-pointer p-0 pr-6 appearance-none">
                                             <option value="all">폴더 (PARA) ▾</option>
-                                            <option value="0_Projects">🚀 Projects (진행 업무)</option>
-                                            <option value="1_Areas">🎯 Areas (지속 관리)</option>
-                                            <option value="2_Resources">📚 Resources (참고 자료)</option>
-                                            <option value="3_Archives">🗄️ Archives (보관)</option>
+                                            <option value="0_프로젝트">🚀 프로젝트 (진행 업무)</option>
+                                            <option value="1_영역">🎯 영역 (지속 관리)</option>
+                                            <option value="2_자료">📚 자료 (참고 자료)</option>
+                                            <option value="3_보관소">🗄️ 보관소 (보관)</option>
                                             <option value="none">미분류</option>
                                         </select>
                                     </th>
