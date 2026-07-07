@@ -283,25 +283,31 @@ async function initFilesystem() {
             const shortId = taskId.slice(-4);
             const dateStr = (task.created_at || task.createdAt || new Date().toISOString()).split('T')[0];
             const safeTitle = (task.title || '제목없음').replace(/[<>:"/\\|?*]/g, '_');
-            const expectedName = `${safeTitle}_${dateStr}_${shortId}`;
+            const expectedFolderName = `${safeTitle}_${dateStr}_${shortId}`;
             
-            let actualName = expectedName;
-            if (fs.existsSync(DESKTOP_ROOT)) {
-                const items = fs.readdirSync(DESKTOP_ROOT);
+            let actualFolderName = expectedFolderName;
+            const projectPath = path.join(DESKTOP_ROOT, "0_프로젝트");
+            
+            if (fs.existsSync(projectPath)) {
+                const items = fs.readdirSync(projectPath);
                 for (const item of items) {
-                    const fullPath = path.join(DESKTOP_ROOT, item);
+                    const fullPath = path.join(projectPath, item);
                     if (fs.statSync(fullPath).isDirectory() && item.endsWith(`_${shortId}`)) {
-                        actualName = item;
+                        actualFolderName = item;
                         break;
                     }
                 }
             }
             
-            const folderPath = path.join(DESKTOP_ROOT, actualName);
-            if (create && !fs.existsSync(folderPath)) {
-                fs.mkdirSync(folderPath, { recursive: true });
+            const relativeFolderName = `0_프로젝트/${actualFolderName}`;
+            const folderPath = path.join(DESKTOP_ROOT, relativeFolderName);
+            
+            if (create) {
+                if (!fs.existsSync(folderPath)) {
+                    fs.mkdirSync(folderPath, { recursive: true });
+                }
             }
-            return { name: actualName, path: folderPath, exists: fs.existsSync(folderPath) };
+            return { name: relativeFolderName, path: folderPath, exists: fs.existsSync(folderPath) };
         }
 
         // Expose resolveTaskFolder globally so routes can use it
@@ -1080,22 +1086,28 @@ function openPathInOS(targetPath) {
         }
 
         const isDir = fs.statSync(targetPath).isDirectory();
+        const leafName = path.basename(targetPath);
+
         if (isDir) {
-            const ps = spawn('explorer.exe', [targetPath], {
-                detached: true,
-                stdio: 'ignore'
-            });
-            ps.unref();
-        } else {
-            // Use Windows 'start' command, quoting the path for spaces/special chars.
-            exec(`start "" "${targetPath}"`, (err) => {
+            // PowerShell: Start explorer and sleep 300ms, then use WScript.Shell to force focus to the folder window.
+            const psCommand = `powershell -NoProfile -Command "Start-Process explorer.exe -ArgumentList '${targetPath}'; Start-Sleep -Milliseconds 300; $wshell = New-Object -ComObject wscript.shell; $wshell.AppActivate('${leafName}')"`;
+            exec(psCommand, (err) => {
                 if (err) {
-                    console.error('[OS OPEN exec ERROR] cmd start failed, falling back to explorer', err);
+                    console.error('[OS OPEN PS ERROR] explorer open/activate failed, falling back', err);
                     const ps = spawn('explorer.exe', [targetPath], {
                         detached: true,
                         stdio: 'ignore'
                     });
                     ps.unref();
+                }
+            });
+        } else {
+            // PowerShell: Start file using its default handler, sleep 500ms, then force focus to the viewer program.
+            const psCommand = `powershell -NoProfile -Command "Start-Process '${targetPath}'; Start-Sleep -Milliseconds 500; $wshell = New-Object -ComObject wscript.shell; $wshell.AppActivate('${leafName}')"`;
+            exec(psCommand, (err) => {
+                if (err) {
+                    console.error('[OS OPEN PS ERROR] file open/activate failed, falling back to start', err);
+                    exec(`start "" "${targetPath}"`);
                 }
             });
         }
@@ -1746,51 +1758,12 @@ app.post('/api/tasks', async (req, res) => {
         }
         await stmt.finalize();
 
-        // Ensure folder creation and migration for tasks
-        if (DESKTOP_ROOT && Array.isArray(tasks)) {
-            const taskFilesRoot = path.join(DESKTOP_ROOT, "05_업무_연관_파일_Task_Files");
-            
-            Object.values(TASK_STATUS_FOLDERS).forEach(sub => {
-                const subPath = path.join(taskFilesRoot, sub);
-                if (!fs.existsSync(subPath)) {
-                    fs.mkdirSync(subPath, { recursive: true });
-                }
-            });
-
-            tasks.forEach(task => {
-                if (!task.id) return;
-                const correctSub = getStatusFolder(task.status);
-                const targetPath = path.join(taskFilesRoot, correctSub, task.id);
-                
-                if (fs.existsSync(targetPath)) return;
-                
-                let moved = false;
-                for (const otherStatus of Object.keys(TASK_STATUS_FOLDERS)) {
-                    if (otherStatus === task.status) continue;
-                    const otherSub = getStatusFolder(otherStatus);
-                    const otherPath = path.join(taskFilesRoot, otherSub, task.id);
-                    if (fs.existsSync(otherPath)) {
-                        fs.renameSync(otherPath, targetPath);
-                        console.log(`[MOVE] Moved task folder: ${task.id} (${otherSub} -> ${correctSub})`);
-                        moved = true;
-                        break;
-                    }
-                }
-                
-                if (!moved) {
-                    const oldRootPath = path.join(taskFilesRoot, task.id);
-                    if (fs.existsSync(oldRootPath)) {
-                        fs.renameSync(oldRootPath, targetPath);
-                        console.log(`[MOVE] Moved task folder from root: ${task.id} -> ${correctSub}`);
-                        moved = true;
-                    }
-                }
-
-                if (!moved) {
-                    fs.mkdirSync(targetPath, { recursive: true });
-                    console.log(`[CREATE] Created new task folder: ${task.id} under ${correctSub}`);
-                }
-            });
+        // Ensure folder creation for tasks
+        if (DESKTOP_ROOT && Array.isArray(tasks) && global.resolveTaskFolder) {
+            for (const task of tasks) {
+                if (!task.id) continue;
+                await global.resolveTaskFolder(task.id, true);
+            }
         }
 
         invalidateCache();
@@ -1809,15 +1782,11 @@ app.delete('/api/tasks/:id', async (req, res) => {
         await dbTasks.run('DELETE FROM tasks WHERE id = ?', [id]);
 
         // Also clean up task folder if it exists
-        if (DESKTOP_ROOT) {
-            const taskFilesRoot = path.join(DESKTOP_ROOT, "05_업무_연관_파일_Task_Files");
-            for (const sub of Object.values(TASK_STATUS_FOLDERS)) {
-                const taskPath = path.join(taskFilesRoot, sub, id);
-                if (fs.existsSync(taskPath)) {
-                    fs.rmSync(taskPath, { recursive: true, force: true });
-                    console.log(`[DELETE] Removed task folder: ${taskPath}`);
-                    break;
-                }
+        if (DESKTOP_ROOT && global.resolveTaskFolder) {
+            const info = await global.resolveTaskFolder(id, false);
+            if (info && info.exists && info.path) {
+                fs.rmSync(info.path, { recursive: true, force: true });
+                console.log(`[DELETE] Removed task folder: ${info.path}`);
             }
         }
 

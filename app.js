@@ -716,7 +716,7 @@ try {
     };
 
     // Fetch all data from Express API - Decoupled with Lazy Loading to optimize startup time
-    async function loadStateFromServer() {
+    async function loadStateFromServer(isPeriodic = false) {
         try {
             // 1. Load fast DB and directory structure first to render UI instantly
             const [resPartners, resAssets, resTasks, resDir, resSchema] = await Promise.all([
@@ -762,6 +762,9 @@ try {
                 if (state.activeView === "dashboard" || state.activeView === "folders") {
                     const savedScroll2 = scrollEl ? scrollEl.scrollTop : 0;
                     renderViewData(state.activeView, state.activeFolder, true);
+                    if (!isPeriodic && typeof currentViewMode !== 'undefined' && currentViewMode === 'mindmap' && window.renderMindmap) {
+                        window.renderMindmap();
+                    }
                     if (scrollEl && savedScroll2 > 0) requestAnimationFrame(() => scrollEl.scrollTop = savedScroll2);
                 }
             }).catch(err => {
@@ -1132,6 +1135,11 @@ try {
     // 4. ROUTER / VIEW SWITCHING
     // -------------------------------------------------------------
     function switchView(viewName, folderName = null) {
+        const btnViewListEl = document.getElementById("btn-view-list");
+        if (viewName !== "folders" && btnViewListEl) {
+            btnViewListEl.click();
+        }
+
         state.activeView = viewName;
         state.activeFolder = folderName;
 
@@ -1219,7 +1227,7 @@ try {
 
         foldersToRender.forEach(folder => {
             const folderName = folder.name;
-            const displayName = folderName.includes('_') ? folderName.split('_').slice(1).join('_') : folderName;
+            const displayName = folderName;
             foldersHtml += `
                 <a href="#" data-folder="${folderName}" class="folder-nav-btn flex items-center px-3 py-2 hover:bg-slate-800 rounded-lg group transition-colors text-slate-400 hover:text-white">
                     <i class="fa-regular fa-folder w-5 text-center mr-3 text-slate-500 group-hover:text-white"></i>
@@ -1343,7 +1351,7 @@ try {
             const theme = folderThemes[folderName] || { bg: "bg-blue-50", text: "text-blue-600" };
             const folderFilesCount = state.files.filter(f => f.folder === folderName || f.relativePath.startsWith(folderName + "/")).length;
             const meta = PARA_FOLDER_META[folderName];
-            const displayName = meta ? meta.label : (folderName.includes('_') ? folderName.split('_').slice(1).join(' ') : folderName);
+            const displayName = meta ? meta.label : folderName;
             const descText = meta ? `<p class="text-xs text-slate-400 mt-1">${meta.desc}</p>` : '';
             const iconHtml = meta ? `<i class="${meta.icon} text-xl ${meta.textColor}"></i>` : `<i class="fa-regular fa-folder text-xl ${theme.text}"></i>`;
 
@@ -1450,7 +1458,7 @@ try {
                         ${getFileIcon(file.extension)}
                         <span class="font-semibold text-slate-700 truncate" title="${file.name}">${file.name}</span>
                     </td>
-                    <td class="px-5 py-3 text-slate-500 text-xs">📁 ${file.folder.split('_').slice(1).join('_')}</td>
+                    <td class="px-5 py-3 text-slate-500 text-xs">📁 ${file.folder}</td>
                     <td class="px-5 py-3 text-slate-400 text-xs">${getRelativeTime(file.modifiedAt)}</td>
                     <td class="px-5 py-3 text-center">
                         <button class="text-slate-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-slate-200/50" title="정보">
@@ -1579,7 +1587,7 @@ try {
             document.getElementById("fd-name").innerText = file.name || '알 수 없음';
             const relPath = file.relativePath || `${file.folder || ''}/${file.name || ''}`;
             const displayFolderName = (relPath && relPath.includes('/')) ? relPath.substring(0, relPath.lastIndexOf('/')) : (file.folder || "");
-            const cleanDisplayFolderName = (displayFolderName && displayFolderName.includes('_')) ? displayFolderName.split('_').slice(1).join('_') : (displayFolderName || "루트");
+            const cleanDisplayFolderName = displayFolderName || "루트";
             document.getElementById("fd-folder-badge").innerText = `📁 ${cleanDisplayFolderName}`;
             document.getElementById("fd-size").innerText = file.size || '0 KB';
             document.getElementById("fd-modified-at").innerText = file.modifiedAt || '알 수 없음';
@@ -1834,7 +1842,7 @@ try {
     // 10. VIRTUAL FOLDER VIEW RENDERER
     // -------------------------------------------------------------
     async function renderFolderView(folderName, skipMindmap = false) {
-        const currentPath = state.currentExplorerPath || folderName;
+        const currentPath = state.currentExplorerPath || folderName || "";
         state.currentExplorerPath = currentPath;
         localStorage.setItem("workhub_currentExplorerPath", currentPath);
 
@@ -1844,7 +1852,7 @@ try {
         // Update Title Display
         const parts = currentPath.split('/');
         const currentDirName = parts[parts.length - 1];
-        const displayName = currentPath === "" ? "최상위 폴더 (바탕화면)" : (currentDirName.includes('_') ? currentDirName.split('_').slice(1).join('_') : currentDirName);
+        const displayName = currentPath === "" ? "최상위 폴더 (바탕화면)" : currentDirName;
         document.getElementById("folder-title-display").innerText = displayName;
 
         const tableBody = document.getElementById("folder-files-table-body");
@@ -1916,7 +1924,8 @@ try {
         rootLink.textContent = "루트";
         rootLink.onclick = (e) => {
             e.preventDefault();
-            switchView("dashboard");
+            state.currentExplorerPath = "";
+            switchView("folders", "");
         };
         container.appendChild(rootLink);
 
@@ -1930,7 +1939,7 @@ try {
             container.appendChild(divider);
 
             accumulatedPath += (index === 0 ? "" : "/") + part;
-            const displayName = part.includes('_') ? part.split('_').slice(1).join('_') : part;
+            const displayName = part;
 
             if (index === parts.length - 1) {
                 const span = document.createElement("span");
@@ -1969,7 +1978,7 @@ try {
         section.classList.remove("hidden");
 
         folders.forEach(folder => {
-            const displayName = folder.name.includes('_') ? folder.name.split('_').slice(1).join('_') : folder.name;
+            const displayName = folder.name;
             const card = document.createElement("div");
             card.className = "bg-slate-50 p-4 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-white hover:shadow-sm transition-all cursor-pointer group relative flex items-center justify-between";
             
@@ -2086,8 +2095,8 @@ try {
 
     // Fallback if API fails
     function renderFolderViewFallback(folderName) {
-        document.getElementById("folder-breadcrumb-active").innerText = folderName.split('_').slice(1).join('_');
-        document.getElementById("folder-title-display").innerText = folderName.split('_').slice(1).join('_');
+        document.getElementById("folder-breadcrumb-active").innerText = folderName;
+        document.getElementById("folder-title-display").innerText = folderName;
 
         const tableBody = document.getElementById("folder-files-table-body");
         tableBody.innerHTML = "";
@@ -2683,13 +2692,20 @@ try {
 
 
     
+    window.openTaskDetailById = function(taskId) {
+        const task = state.orders.find(o => o.id === taskId);
+        if (task && typeof openTaskDetail === "function") {
+            openTaskDetail(task);
+        }
+    };
+
     function updateNotifications() {
         const unreadDot = document.getElementById("unread-dot");
         const notifList = document.getElementById("notification-list");
         if (!unreadDot || !notifList) return;
 
         const urgentTasks = state.orders.filter(task => {
-            return task.status !== "completed" && getDaysUntil(task.deliveryDate) <= 3;
+            return task.status !== "completed" && task.status !== "done" && getDaysUntil(task.deliveryDate) <= 3;
         });
 
         if (urgentTasks.length > 0) {
@@ -2701,7 +2717,7 @@ try {
                 const dDay = days < 0 ? `마감 지남 (${Math.abs(days)}일)` : (days === 0 ? "D-Day" : `D-${days}`);
                 const color = days < 0 ? "text-red-600 bg-red-50" : (days === 0 ? "text-orange-600 bg-orange-50" : "text-amber-600 bg-amber-50");
                 return `
-                    <div class="p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer group" onclick="document.getElementById('${task.id}')?.scrollIntoView({behavior:'smooth', block:'center'});">
+                    <div class="p-4 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer group" onclick="window.openTaskDetailById('${task.id}');">
                         <div class="flex justify-between items-start mb-1">
                             <h4 class="text-xs font-bold text-slate-800 line-clamp-1 group-hover:text-blue-600 transition-colors">${task.title}</h4>
                             <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ${color} whitespace-nowrap ml-2">${dDay}</span>
@@ -4162,7 +4178,7 @@ try {
                         ${getFileIcon(file.extension)}
                         <div>
                             <h4 class="font-bold text-slate-800 text-sm truncate max-w-sm">${highlightText(file.name, q)}</h4>
-                            <p class="text-[10px] text-slate-400 font-medium mt-0.5">📂 폴더: ${file.folder.split('_').slice(1).join('_')} | 용량: ${file.size}</p>
+                            <p class="text-[10px] text-slate-400 font-medium mt-0.5">📂 폴더: ${file.folder} | 용량: ${file.size}</p>
                         </div>
                     </div>
                     <span class="text-xs text-blue-600 font-semibold hover:underline">열기</span>
@@ -5062,7 +5078,7 @@ try {
     // Disabled while a task detail modal is open to prevent overwriting user input or timeline modifications.
     setInterval(() => {
         if (activeModals.size === 0 && !currentSelectedTask) {
-            loadStateFromServer();
+            loadStateFromServer(true);
         }
     }, 10000);
 
@@ -5555,29 +5571,36 @@ try {
             btnViewList.classList.add('text-slate-500', 'hover:text-slate-800');
             
             viewListContainer.classList.add('hidden');
-            subfoldersSection.classList.add('hidden');
             viewMindmapContainer.classList.remove('hidden');
             viewMindmapContainer.classList.add('flex');
             
             renderMindmap();
         });
+
+        const btnMmClose = document.getElementById("btn-mm-close");
+        if (btnMmClose) {
+            btnMmClose.addEventListener('click', () => {
+                btnViewList.click();
+            });
+        }
     }
 
     // --- D3 MINDMAP LOGIC ---
     let mindmapSvg, mindmapG, mindmapZoom, mindmapRoot;
     let mindmapDx = 40, mindmapDy = 200;
+    let lastExplorerPathForMindmap = null;
 
     function buildFolderTreeForMindmap() {
         const rootPath = state.currentExplorerPath || "";
         const rootName = rootPath === "" ? "Root" : rootPath.split('/').pop();
-        const displayName = rootName.includes('_') ? rootName.split('_').slice(1).join('_') : rootName;
+        const displayName = rootName;
         
         const root = { name: displayName, children: [], relativePath: rootPath, isRoot: true };
         const foldersMap = { [rootPath]: root };
         
-        if (!state.folders || state.folders.length === 0) return root;
-
-        const sortedFolders = [...state.folders]
+        // 1. Build folder nodes
+        const foldersList = state.folders || [];
+        const sortedFolders = [...foldersList]
             .filter(f => rootPath === "" || f.relativePath === rootPath || f.relativePath.startsWith(rootPath + '/'))
             .sort((a, b) => a.relativePath.split('/').length - b.relativePath.split('/').length);
 
@@ -5608,7 +5631,67 @@ try {
             });
         });
 
+        // 2. Build file nodes under parent folders
+        const filesList = state.files || [];
+        filesList.forEach(file => {
+            const fileFolder = file.folder || "";
+            const isUnderRoot = (rootPath === "") || (fileFolder === rootPath) || fileFolder.startsWith(rootPath + '/');
+            if (!isUnderRoot) return;
+
+            const parentNode = (fileFolder === rootPath) ? root : foldersMap[fileFolder];
+            if (parentNode) {
+                const fileNode = {
+                    id: file.id,
+                    name: file.name,
+                    relativePath: fileFolder ? `${fileFolder}/${file.name}` : file.name,
+                    isFile: true,
+                    extension: file.extension,
+                    size: file.size
+                };
+                if (!parentNode.children) {
+                    parentNode.children = [];
+                }
+                parentNode.children.push(fileNode);
+            }
+        });
+
         return root;
+    }
+
+    function getMindmapNodeStates() {
+        const states = {};
+        if (!mindmapRoot) return states;
+        mindmapRoot.each(d => {
+            if (d.data && d.data.relativePath) {
+                const isCollapsed = !d.children && d._children ? true : false;
+                states[d.data.relativePath] = isCollapsed;
+            }
+        });
+        return states;
+    }
+
+    function applyNodeState(d, previousStates) {
+        const path = d.data.relativePath;
+        if (path && previousStates[path] !== undefined) {
+            const isCollapsed = previousStates[path];
+            if (isCollapsed && d.children) {
+                d._children = d.children;
+                d.children = null;
+            } else if (!isCollapsed && d._children) {
+                d.children = d._children;
+                d._children = null;
+            }
+        } else {
+            const depth = path ? path.split('/').length : 0;
+            if (depth > 1 && d.children) {
+                d._children = d.children;
+                d.children = null;
+            }
+        }
+        const childrenList = d.children || d._children;
+        if (childrenList) {
+            childrenList.forEach(child => applyNodeState(child, previousStates));
+        }
     }
 
     window.renderMindmap = function() {
@@ -5616,6 +5699,19 @@ try {
         
         const container = document.getElementById("mindmap-svg-container");
         if (!container) return;
+        
+        const currentPath = state.currentExplorerPath || "";
+        
+        // Preserve previous zoom transform (only if browsing same path)
+        let savedTransform = null;
+        if (lastExplorerPathForMindmap === currentPath && mindmapSvg && mindmapSvg.node()) {
+            try {
+                savedTransform = d3.zoomTransform(mindmapSvg.node());
+            } catch (e) {}
+        }
+        
+        const previousStates = lastExplorerPathForMindmap === currentPath ? getMindmapNodeStates() : {};
+        lastExplorerPathForMindmap = currentPath;
         
         container.innerHTML = "";
         
@@ -5640,12 +5736,16 @@ try {
         mindmapRoot.x0 = height / 2;
         mindmapRoot.y0 = 0;
 
-        if (mindmapRoot.children) {
-            mindmapRoot.children.forEach(collapseAll);
-        }
+        applyNodeState(mindmapRoot, previousStates);
 
         updateMindmap(mindmapRoot);
-        setTimeout(() => fitMindmapToScreen(), 100);
+        
+        // Restore zoom state if exists, otherwise fit to screen
+        if (savedTransform) {
+            mindmapSvg.call(mindmapZoom.transform, savedTransform);
+        } else {
+            setTimeout(() => fitMindmapToScreen(), 100);
+        }
     };
 
     function collapseAll(d) {
@@ -5694,6 +5794,12 @@ try {
             .attr("stroke-opacity", 0)
             .style("cursor", "pointer")
             .on("click", (event, d) => {
+                if (d.data.isFile) {
+                    if (d.data.id && typeof openFileDetailModal === "function") {
+                        openFileDetailModal(d.data.id);
+                    }
+                    return;
+                }
                 if (d.children) {
                     d._children = d.children;
                     d.children = null;
@@ -5705,8 +5811,9 @@ try {
             });
 
         nodeEnter.append("circle")
-            .attr("r", 6)
+            .attr("r", d => d.data.isFile ? 4.5 : 6)
             .attr("fill", d => {
+                if (d.data.isFile) return "#ffffff";
                 if (d.data.isRoot) return "#3b82f6";
                 if (d.data.relativePath.startsWith("0_")) return "#3b82f6";
                 if (d.data.relativePath.startsWith("1_")) return "#10b981";
@@ -5714,21 +5821,20 @@ try {
                 if (d.data.relativePath.startsWith("3_")) return "#64748b";
                 return "#94a3b8";
             })
-            .attr("stroke-width", 2)
-            .attr("stroke", d => d._children ? "#1e293b" : "white");
+            .attr("stroke-width", d => d.data.isFile ? 1.5 : 2)
+            .attr("stroke", d => {
+                if (d.data.isFile) return "#8b5cf6";
+                return d._children ? "#1e293b" : "white";
+            });
 
         nodeEnter.append("text")
             .attr("dy", "0.31em")
             .attr("x", d => d._children ? -8 : 8)
             .attr("text-anchor", d => d._children ? "end" : "start")
-            .text(d => d.data.name.includes('_') && !d.data.isRoot ? d.data.name.split('_').slice(1).join('_') : d.data.name)
-            .attr("fill", "#334155")
+            .text(d => d.data.isFile ? "📄 " + d.data.name : d.data.name)
+            .attr("fill", d => d.data.isFile ? "#6b7280" : "#334155")
             .attr("font-size", "12px")
-            .attr("font-weight", d => d.data.isRoot ? "bold" : "normal")
-            .clone(true).lower()
-            .attr("stroke-linejoin", "round")
-            .attr("stroke-width", 3)
-            .attr("stroke", "white");
+            .attr("font-weight", d => d.data.isRoot ? "bold" : "normal");
 
         const nodeUpdate = node.merge(nodeEnter).transition(transition)
             .attr("transform", d => `translate(${d.y},${d.x})`)
