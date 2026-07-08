@@ -1271,6 +1271,21 @@ app.get('/api/dir-abs', (req, res) => {
 });
 
 
+app.post('/api/open-folder', (req, res) => {
+    try {
+        const { path: relPath } = req.body;
+        const targetPath = safeResolvePath(relPath || '');
+        if (!fs.existsSync(targetPath)) {
+            return res.status(404).json({ error: '폴더를 찾을 수 없습니다.' });
+        }
+        openPathInOS(targetPath);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error opening folder in OS:', err);
+        res.status(500).json({ error: 'Failed to open folder.' });
+    }
+});
+
 app.get('/api/dir', (req, res) => {
     try {
         if (!DESKTOP_ROOT) {

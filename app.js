@@ -740,7 +740,7 @@ try {
             const savedScroll1 = scrollEl ? scrollEl.scrollTop : 0;
             if (isInitialLoad) {
                 isInitialLoad = false;
-                switchView(state.activeView, state.activeFolder);
+                switchView(state.activeView, state.activeFolder, state.currentExplorerPath);
             } else {
                 // 백그라운드 동기화 시 마인드맵 초기화 방지 (skipMindmap=true)
                 renderViewData(state.activeView, state.activeFolder, true);
@@ -790,7 +790,7 @@ try {
                     renderSidebarFolders();
                     if (isInitialLoad) {
                         isInitialLoad = false;
-                        switchView(state.activeView, state.activeFolder);
+                        switchView(state.activeView, state.activeFolder, state.currentExplorerPath);
                     } else {
                         renderViewData(state.activeView, state.activeFolder, true);
                     }
@@ -844,7 +844,7 @@ try {
         renderSidebarFolders();
         if (isInitialLoad) {
             isInitialLoad = false;
-            switchView(state.activeView, state.activeFolder);
+            switchView(state.activeView, state.activeFolder, state.currentExplorerPath);
         } else {
             renderViewData(state.activeView, state.activeFolder);
         }
@@ -1623,8 +1623,6 @@ try {
             }
             iconContainer.className += ` ${bgClass}`;
 
-            const previewEl = document.getElementById("fd-preview-content");
-            previewEl.innerHTML = getVirtualPreview(file);
 
             openModal("modal-file-detail");
         } catch(e) {
@@ -1634,76 +1632,7 @@ try {
     }
 
 
-    function getVirtualPreview(file) {
-        if (file.extension === "xlsx") {
-            return `
-                <table class="w-full text-[10px] text-left border-collapse border border-slate-300">
-                    <thead>
-                        <tr class="bg-slate-200">
-                            <th class="p-1 border border-slate-300">A</th>
-                            <th class="p-1 border border-slate-300">B (품목명)</th>
-                            <th class="p-1 border border-slate-300">C (금액)</th>
-                            <th class="p-1 border border-slate-300">D (작성자)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="p-1 border border-slate-300">1</td>
-                            <td class="p-1 border border-slate-300">사내 복리후생 지출</td>
-                            <td class="p-1 border border-slate-300">₩1,200,000</td>
-                            <td class="p-1 border border-slate-300">이인사</td>
-                        </tr>
-                        <tr>
-                            <td class="p-1 border border-slate-300">2</td>
-                            <td class="p-1 border border-slate-300">비품 구매 청구</td>
-                            <td class="p-1 border border-slate-300">₩450,000</td>
-                            <td class="p-1 border border-slate-300">이인사</td>
-                        </tr>
-                    </tbody>
-                </table>
-            `;
-        } else if (file.extension === "pdf") {
-            return `
-                <div class="text-center py-2">
-                    <p class="font-bold text-[11px] text-slate-700">TECHNICAL SPECIFICATION DOCUMENT</p>
-                    <p class="text-[10px]">Proposal documentation for client 바이어 미팅</p>
-                    <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden mt-2">
-                        <div class="bg-red-500 h-full w-[80%]"></div>
-                    </div>
-                </div>
-            `;
-        } else if (file.extension === "docx") {
-            return `
-                <div class="text-slate-500 text-[10px]">
-                    <h4 class="font-bold text-slate-700 text-[11px] mb-1">계약 합의서 계약서</h4>
-                    <p>본 양식은 사내 표준 외주 가공 협력 계약서입니다. 각 부서별 계약 체결 시 본 양식을 준수하여 인감을 날인해주시기 바랍니다...</p>
-                </div>
-            `;
-        } else if (file.extension === "hwp") {
-            return `
-                <div class="text-slate-500 text-[10px]">
-                    <h4 class="font-bold text-slate-700 text-[11px] mb-1">기획서 및 실적 보고서</h4>
-                    <p>본 문서는 한글(HWP) 서식으로 작성되었습니다. 부서별 주간/월간 업무 추진 실적 보고는 본 한글 파일에 수치를 기록하여 결재를 득하시기 바랍니다...</p>
-                </div>
-            `;
-        } else if (file.extension === "dwg") {
-            return `
-                <div class="flex flex-col items-center justify-center py-3 text-slate-500">
-                    <i class="fa-solid fa-drafting-compass text-2xl mb-1 text-amber-500"></i>
-                    <p class="text-[10px] font-bold">CAD VECTOR GRAPHICS DATA</p>
-                    <span class="text-[9px]">Layers: 8, Units: MM, Scale: 1:1</span>
-                </div>
-            `;
-        } else {
-            return `
-                <div class="flex flex-col items-center justify-center py-3 text-slate-500">
-                    <i class="fa-regular fa-image text-2xl mb-1 text-purple-500"></i>
-                    <p class="text-[10px] font-bold">IMAGE VIEWPORT</p>
-                    <span class="text-[9px] scale-90">Dimensions: 1920 x 1080</span>
-                </div>
-            `;
-        }
-    }
+
 
     // Delete file on Disk
     document.getElementById("fd-btn-delete").addEventListener("click", async () => {
@@ -1852,11 +1781,6 @@ try {
         // 1. Breadcrumbs
         renderBreadcrumbs(currentPath);
 
-        // Update Title Display
-        const parts = currentPath.split('/');
-        const currentDirName = parts[parts.length - 1];
-        const displayName = currentPath === "" ? "최상위 폴더 (바탕화면)" : currentDirName;
-        document.getElementById("folder-title-display").innerText = displayName;
 
         const tableBody = document.getElementById("folder-files-table-body");
         const isSameFolder = (state._lastRenderedPath === currentPath);
@@ -1983,12 +1907,12 @@ try {
         folders.forEach(folder => {
             const displayName = folder.name;
             const card = document.createElement("div");
-            card.className = "bg-slate-50 p-4 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-white hover:shadow-sm transition-all cursor-pointer group relative flex items-center justify-between";
+            card.className = "w-full bg-slate-50 p-4 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-white hover:shadow-sm transition-all cursor-pointer group relative flex items-center justify-between";
             
             card.innerHTML = `
-                <div class="flex items-center space-x-3 truncate">
-                    <i class="fa-solid fa-folder text-blue-500 text-lg"></i>
-                    <span class="text-sm font-semibold text-slate-700 truncate" title="${folder.name}">${displayName}</span>
+                <div class="flex items-center space-x-3 min-w-0 flex-1 pr-4">
+                    <i class="fa-solid fa-folder text-blue-500 text-lg flex-shrink-0"></i>
+                    <span class="text-sm font-semibold text-slate-700 break-words whitespace-normal leading-snug" title="${folder.name}">${displayName}</span>
                 </div>
                 <!-- Action Controls -->
                 <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
@@ -2051,9 +1975,9 @@ try {
                     ${getFileIcon(file.extension)}
                     <span class="font-semibold text-slate-700 truncate" title="${file.name}">${file.name}</span>
                 </td>
-                <td class="px-6 py-4 text-slate-500 font-medium text-xs">${file.size}</td>
-                <td class="px-6 py-4 text-slate-500 text-xs">${file.modifiedAt}</td>
-                <td class="px-6 py-4 text-slate-500 text-xs">시스템 자동 동기화</td>
+                <td class="px-6 py-4 text-slate-500 font-medium text-xs hide-in-mindmap">${file.size}</td>
+                <td class="px-6 py-4 text-slate-500 text-xs hide-in-mindmap">${file.modifiedAt}</td>
+                <td class="px-6 py-4 text-slate-500 text-xs hide-in-mindmap">시스템 자동 동기화</td>
                 <td class="px-6 py-4 text-center">
                     <div class="flex items-center justify-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button class="btn-file-view text-slate-400 hover:text-blue-600 p-1 rounded hover:bg-slate-100" title="정보"><i class="fa-solid fa-circle-info"></i></button>
@@ -2099,7 +2023,6 @@ try {
     // Fallback if API fails
     function renderFolderViewFallback(folderName) {
         document.getElementById("folder-breadcrumb-active").innerText = folderName;
-        document.getElementById("folder-title-display").innerText = folderName;
 
         const tableBody = document.getElementById("folder-files-table-body");
         tableBody.innerHTML = "";
@@ -4747,6 +4670,25 @@ try {
         });
     }
 
+    // Open Folder in Windows Explorer Button
+    const btnOpenFolderInExplorer = document.getElementById("btn-open-folder-in-explorer");
+    if (btnOpenFolderInExplorer) {
+        btnOpenFolderInExplorer.addEventListener("click", async () => {
+            const currentPath = state.currentExplorerPath || state.activeFolder || '';
+            try {
+                const res = await fetch(`${API_BASE}/open-folder`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: currentPath })
+                });
+                const data = await res.json();
+                if (!data.success) showToast(data.error || "폴더를 열 수 없습니다.", "error");
+            } catch (err) {
+                showToast("서버 통신에 실패했습니다.", "error");
+            }
+        });
+    }
+
     // AI Smart Folder Organize Logic
     const btnAiOrganize = document.getElementById("btn-folder-ai-organize");
     if (btnAiOrganize) {
@@ -5556,7 +5498,30 @@ try {
             btnViewList.classList.remove('text-slate-500', 'hover:text-slate-800');
             btnViewMindmap.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
             btnViewMindmap.classList.add('text-slate-500', 'hover:text-slate-800');
-            
+
+            // Restore normal header layout
+            const headerContainer = document.getElementById("folder-header-container");
+            if (headerContainer) {
+                headerContainer.classList.add('sm:flex-row', 'sm:items-center', 'sm:justify-between', 'sm:space-y-0');
+            }
+
+            // Restore normal split container & list wrapper layout
+            const splitContainer = document.getElementById("folder-view-split-container");
+            if (splitContainer) {
+                splitContainer.classList.remove('mindmap-active');
+            }
+            const listWrapper = document.getElementById("folder-list-wrapper");
+            if (listWrapper) {
+                listWrapper.classList.remove('flex-shrink-0');
+            }
+
+            // Restore grid to default responsive columns
+            const gridRestore = document.getElementById('subfolders-list-grid');
+            if (gridRestore) {
+                gridRestore.classList.remove('grid-cols-1');
+                gridRestore.classList.add('grid-cols-2', 'md:grid-cols-4');
+            }
+
             viewListContainer.classList.remove('hidden');
             if (document.getElementById("subfolders-list-grid").innerHTML.trim() !== "") {
                 subfoldersSection.classList.remove('hidden');
@@ -5571,8 +5536,36 @@ try {
             btnViewMindmap.classList.remove('text-slate-500', 'hover:text-slate-800');
             btnViewList.classList.remove('bg-white', 'shadow-sm', 'text-blue-600');
             btnViewList.classList.add('text-slate-500', 'hover:text-slate-800');
+
+            // Wrap header into two lines
+            const headerContainer = document.getElementById("folder-header-container");
+            if (headerContainer) {
+                headerContainer.classList.remove('sm:flex-row', 'sm:items-center', 'sm:justify-between', 'sm:space-y-0');
+            }
+
+            // Apply split layout classes
+            const splitContainer = document.getElementById("folder-view-split-container");
+            if (splitContainer) {
+                splitContainer.classList.add('mindmap-active');
+            }
             
-            viewListContainer.classList.add('hidden');
+            const listWrapper = document.getElementById("folder-list-wrapper");
+            if (listWrapper) {
+                listWrapper.classList.add('flex-shrink-0');
+            }
+
+            // In mindmap split mode, collapse grid to 1 column so cards fill full width
+            const grid = document.getElementById('subfolders-list-grid');
+            if (grid) {
+                grid.classList.remove('grid-cols-2', 'md:grid-cols-4');
+                grid.classList.add('grid-cols-1');
+            }
+
+            viewListContainer.classList.remove('hidden');
+            if (grid && grid.innerHTML.trim() !== "") {
+                subfoldersSection.classList.remove('hidden');
+            }
+            
             viewMindmapContainer.classList.remove('hidden');
             viewMindmapContainer.classList.add('flex');
             

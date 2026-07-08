@@ -134,3 +134,27 @@ body {
     border-radius: 2px;
     padding: 0 1px;
 }
+
+/* Mindmap Split View Custom Responsiveness */
+.mindmap-active .hide-in-mindmap {
+    display: none !important;
+}
+
+/* Mindmap Split View Custom Responsiveness */
+.mindmap-active #subfolders-list-grid {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+}
+
+@media (min-width: 768px) {
+    .mindmap-active #folder-list-wrapper {
+        width: 40% !important;
+        flex: 0 0 40% !important;
+        max-width: 40% !important;
+        overflow-x: hidden !important;
+    }
+    .mindmap-active #view-mindmap-container {
+        width: 60% !important;
+        flex: 0 0 60% !important;
+        max-width: 60% !important;
+    }
+}
