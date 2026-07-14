@@ -2983,6 +2983,69 @@ try {
                     `;
                 } else {
                     // Normal Mode
+                    let retroHtml = "";
+                    if (window.activeRetroEditId === entry.id) {
+                        retroHtml = `
+                            <div class="mt-4 pt-4 border-t border-slate-100">
+                                <div class="bg-emerald-50/50 rounded-lg border border-emerald-100 p-4">
+                                    <h5 class="text-sm font-bold text-emerald-800 mb-3 flex items-center gap-2"><i class="fa-solid fa-book-open"></i> 회고 작성</h5>
+                                    
+                                    <div class="mb-3">
+                                        <label class="block text-xs font-bold text-emerald-700 mb-1">💡 해결 과정</label>
+                                        <textarea id="retro-solution-${entry.id}" class="w-full bg-white border border-emerald-200 rounded-md p-2 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none resize-y min-h-[60px]" placeholder="문제를 어떻게 해결했나요?">${entry.retrospective?.solution || ''}</textarea>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="block text-xs font-bold text-emerald-700 mb-1">🚧 어려웠던 점</label>
+                                        <textarea id="retro-difficulty-${entry.id}" class="w-full bg-white border border-emerald-200 rounded-md p-2 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none resize-y min-h-[60px]" placeholder="진행 과정에서 마주친 장애물이나 아쉬운 점은 무엇인가요?">${entry.retrospective?.difficulty || ''}</textarea>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="block text-xs font-bold text-emerald-700 mb-1">🚀 개선 방안</label>
+                                        <textarea id="retro-improvement-${entry.id}" class="w-full bg-white border border-emerald-200 rounded-md p-2 text-sm text-slate-700 focus:ring-2 focus:ring-emerald-500 outline-none resize-y min-h-[60px]" placeholder="다음번 유사한 업무 시 어떻게 다르게 접근할 것인가요?">${entry.retrospective?.improvement || ''}</textarea>
+                                    </div>
+                                    
+                                    <div class="flex justify-end gap-2 mt-4">
+                                        <button onclick="cancelRetroEdit('${task.id}', '${entry.id}')" class="px-3 py-1.5 bg-white border border-emerald-200 hover:bg-emerald-50 text-emerald-700 rounded-md text-xs font-bold transition-colors">취소</button>
+                                        <button onclick="saveRetroEdit('${task.id}', '${entry.id}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition-colors shadow-sm">저장</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    } else if (entry.retrospective && (entry.retrospective.solution || entry.retrospective.difficulty || entry.retrospective.improvement)) {
+                        let sectionsHtml = "";
+                        if (entry.retrospective.solution && entry.retrospective.solution.trim() !== '') {
+                            sectionsHtml += `
+                                    <div class="mb-2 last:mb-0">
+                                        <div class="text-xs font-bold text-emerald-700 mb-1"><i class="fa-solid fa-lightbulb"></i> 해결 과정</div>
+                                        <div class="text-slate-700 whitespace-pre-wrap pl-1">${entry.retrospective.solution}</div>
+                                    </div>`;
+                        }
+                        if (entry.retrospective.difficulty && entry.retrospective.difficulty.trim() !== '') {
+                            sectionsHtml += `
+                                    <div class="mb-2 last:mb-0">
+                                        <div class="text-xs font-bold text-emerald-700 mb-1"><i class="fa-solid fa-triangle-exclamation"></i> 어려웠던 점</div>
+                                        <div class="text-slate-700 whitespace-pre-wrap pl-1">${entry.retrospective.difficulty}</div>
+                                    </div>`;
+                        }
+                        if (entry.retrospective.improvement && entry.retrospective.improvement.trim() !== '') {
+                            sectionsHtml += `
+                                    <div class="mb-2 last:mb-0">
+                                        <div class="text-xs font-bold text-emerald-700 mb-1"><i class="fa-solid fa-rocket"></i> 개선 방안</div>
+                                        <div class="text-slate-700 whitespace-pre-wrap pl-1">${entry.retrospective.improvement}</div>
+                                    </div>`;
+                        }
+                        if (sectionsHtml) {
+                            retroHtml = `
+                                <div class="mt-3 pt-3 border-t border-slate-100">
+                                    <div class="bg-slate-50 border-l-4 border-emerald-400 rounded-r-lg p-3 text-sm">
+                                        ${sectionsHtml}
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+
                     html += `
                         <div class="relative pl-8 mb-4">
                             <!-- Node -->
@@ -2991,33 +3054,39 @@ try {
                             </div>
                             
                             <!-- Card -->
-                            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow group relative flex justify-between items-start gap-4">
-                                <!-- Left Content -->
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex items-center justify-between mb-2 pr-4">
-                                        <h4 class="font-bold text-slate-800 text-base truncate" title="${entry.title || '업무 기록'}">${entry.title || "업무 기록"}</h4>
+                            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:shadow-md transition-shadow group relative">
+                                <div class="flex justify-between items-start gap-4">
+                                    <!-- Left Content -->
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center justify-between mb-2 pr-4">
+                                            <h4 class="font-bold text-slate-800 text-base truncate" title="${entry.title || '업무 기록'}">${entry.title || "업무 기록"}</h4>
+                                        </div>
+                                        <div class="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1.5">
+                                            <i class="fa-regular fa-calendar-days"></i> ${dateStr} · ${timeStr}
+                                        </div>
+                                        ${entry.content ? `<div class="bg-slate-50 rounded-lg p-3 text-sm text-slate-700 leading-relaxed border border-slate-100 whitespace-pre-wrap mb-3">${entry.content}</div>` : ''}
+                                        ${linksHtmlNormal}
                                     </div>
-                                    <div class="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1.5">
-                                        <i class="fa-regular fa-calendar-days"></i> ${dateStr} · ${timeStr}
-                                    </div>
-                                    ${entry.content ? `<div class="bg-slate-50 rounded-lg p-3 text-sm text-slate-700 leading-relaxed border border-slate-100 whitespace-pre-wrap mb-3">${entry.content}</div>` : ''}
-                                    ${linksHtmlNormal}
-                                </div>
-                                
-                                <!-- Right Area (Images & Actions) -->
-                                <div class="flex items-center gap-3 flex-shrink-0 ml-4">
-                                    ${imagesHtmlNormal ? `<div class="flex-shrink-0">${imagesHtmlNormal}</div>` : ''}
-                                    <div class="h-7 flex items-center">
-                                        <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                            <button onclick="editTimelineEntry('${task.id}', '${entry.id}')" class="w-7 h-7 flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="수정">
-                                                <i class="fa-solid fa-pen text-xs"></i>
-                                            </button>
-                                            <button onclick="deleteTimelineEntry('${task.id}', '${entry.id}')" class="w-7 h-7 flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:border-red-500 hover:text-red-600 hover:bg-red-50 transition-colors" title="삭제">
-                                                <i class="fa-solid fa-trash-can text-xs"></i>
-                                            </button>
+                                    
+                                    <!-- Right Area (Images & Actions) -->
+                                    <div class="flex items-center gap-3 flex-shrink-0 ml-4">
+                                        ${imagesHtmlNormal ? `<div class="flex-shrink-0">${imagesHtmlNormal}</div>` : ''}
+                                        <div class="h-7 flex items-center">
+                                            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                                <button onclick="openRetroEdit('${task.id}', '${entry.id}')" class="w-7 h-7 flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:border-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors" title="${entry.retrospective ? '회고 수정' : '회고 작성'}">
+                                                    <i class="fa-solid fa-book-open text-xs"></i>
+                                                </button>
+                                                <button onclick="editTimelineEntry('${task.id}', '${entry.id}')" class="w-7 h-7 flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="수정">
+                                                    <i class="fa-solid fa-pen text-xs"></i>
+                                                </button>
+                                                <button onclick="deleteTimelineEntry('${task.id}', '${entry.id}')" class="w-7 h-7 flex items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:border-red-500 hover:text-red-600 hover:bg-red-50 transition-colors" title="삭제">
+                                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                                ${retroHtml}
                             </div>
                         </div>
                     `;
@@ -3521,6 +3590,47 @@ try {
     };
 
     window.activeTimelineEditId = null;
+    window.activeRetroEditId = null;
+
+    window.openRetroEdit = (taskId, entryId) => {
+        window.activeRetroEditId = entryId;
+        if (currentSelectedTask && currentSelectedTask.id === taskId) {
+            renderTimeline(currentSelectedTask);
+        }
+    };
+
+    window.cancelRetroEdit = (taskId, entryId) => {
+        window.activeRetroEditId = null;
+        if (currentSelectedTask && currentSelectedTask.id === taskId) {
+            renderTimeline(currentSelectedTask);
+        }
+    };
+
+    window.saveRetroEdit = async (taskId, entryId) => {
+        const task = state.orders.find(t => t.id === taskId);
+        if (task && task.timeline) {
+            const entry = task.timeline.find(e => e.id === entryId);
+            if (entry) {
+                const solutionInput = document.getElementById(`retro-solution-${entryId}`);
+                const difficultyInput = document.getElementById(`retro-difficulty-${entryId}`);
+                const improvementInput = document.getElementById(`retro-improvement-${entryId}`);
+                
+                if (!entry.retrospective) {
+                    entry.retrospective = {};
+                }
+                
+                if (solutionInput) entry.retrospective.solution = solutionInput.value;
+                if (difficultyInput) entry.retrospective.difficulty = difficultyInput.value;
+                if (improvementInput) entry.retrospective.improvement = improvementInput.value;
+                
+                await syncData("orders", state.orders);
+            }
+        }
+        window.activeRetroEditId = null;
+        if (currentSelectedTask && currentSelectedTask.id === taskId) {
+            renderTimeline(currentSelectedTask);
+        }
+    };
 
     window.editTimelineEntry = (taskId, entryId) => {
         window.activeTimelineEditId = entryId;

@@ -1,6 +1,6 @@
 {
-  "version": "1.2.3",
+  "version": "1.2.4",
   "githubOwner": "qpzm007",
   "githubRepo": "workhub",
-  "releaseNotes": "v1.2.3 업데이트 적용됨"
+  "releaseNotes": "v1.2.4 타임라인 회고 작성 기능 추가"
 }
