@@ -2334,13 +2334,22 @@ app.post('/api/ai/scan-card', async (req, res) => {
     }
 });
 
-// --- AI Chat Endpoint (Gemini) ---
+// --- AI Chat Endpoint (Gemini Stream) ---
 app.post('/api/ai-chat', async (req, res) => {
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+    });
+
     try {
         const { message, history, scope = 'tasks' } = req.body;
         
         if (!globalSettings.apiKey) {
-            return res.status(400).json({ error: "Gemini API Key가 설정되지 않았습니다. 환경설정에서 API 키를 입력해주세요." });
+            res.write(`data: ${JSON.stringify({ error: "Gemini API Key가 설정되지 않았습니다. 환경설정에서 API 키를 입력해주세요." })}\n\n`);
+            res.end();
+            return;
         }
 
         let contextDataStr = "";
@@ -2402,12 +2411,18 @@ ${contextDataStr}
             history: formattedHistory
         });
 
-        const result = await chat.sendMessage(message);
-        const responseText = result.response.text();
+        const resultStream = await chat.sendMessageStream(message);
         
-        res.json({ success: true, text: responseText });
+        for await (const chunk of resultStream.stream) {
+            const chunkText = chunk.text();
+            res.write(`data: ${JSON.stringify({ text: chunkText })}\n\n`);
+        }
+        
+        res.write(`data: [DONE]\n\n`);
+        res.end();
     } catch (err) {
-        console.error("AI Chat Exception:", err);
-        res.status(500).json({ error: "AI 요청 중 오류가 발생했습니다: " + err.message });
+        console.error("AI Chat Stream Exception:", err);
+        res.write(`data: ${JSON.stringify({ error: "AI 요청 중 오류가 발생했습니다: " + err.message })}\n\n`);
+        res.end();
     }
 });

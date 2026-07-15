@@ -6280,19 +6280,83 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ message: text, history: chatHistory, scope: contextScope })
             });
-            const data = await res.json();
-            
+
             loadingMsgDiv.remove();
+
+            // Create streaming response bubble placeholder
+            const msgDiv = document.createElement("div");
+            msgDiv.className = "flex gap-4 w-full justify-start animate-fade-in";
+            msgDiv.innerHTML = `
+                <div class="flex-shrink-0 mt-1">
+                    <i class="fa-solid fa-sparkles text-indigo-500 text-xl"></i>
+                </div>
+                <div class="text-slate-800 max-w-full text-[15px] leading-relaxed markdown-body w-full overflow-hidden"></div>
+            `;
+            aiHistory.appendChild(msgDiv);
+            const contentContainer = msgDiv.querySelector(".markdown-body");
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder("utf-8");
+            let accumulatedText = "";
+            let done = false;
+            let buffer = "";
+
+            console.log("[AI 스트리밍] 수신 시작...");
+
+            while (!done) {
+                const { value, done: streamDone } = await reader.read();
+                done = streamDone;
+                if (value) {
+                    const chunkStr = decoder.decode(value, { stream: !done });
+                    buffer += chunkStr;
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop(); // Keep partial line
+
+                    for (const line of lines) {
+                        const trimmedLine = line.trim();
+                        if (!trimmedLine) continue;
+
+                        console.log("[AI 스트리밍] 데이터 라인 수신:", trimmedLine);
+
+                        if (trimmedLine.startsWith("data: ")) {
+                            const dataStr = trimmedLine.substring(6).trim();
+                            if (dataStr === "[DONE]") {
+                                console.log("[AI 스트리밍] [DONE] 완료 태그 감지");
+                                done = true;
+                                break;
+                            }
+                            try {
+                                const parsed = JSON.parse(dataStr);
+                                if (parsed.error) {
+                                    console.error("[AI 스트리밍] 서버 에러 보고됨:", parsed.error);
+                                    contentContainer.innerHTML = `<span class="text-red-500">오류: ${parsed.error}</span>`;
+                                    accumulatedText = "";
+                                    done = true;
+                                    break;
+                                }
+                                if (parsed.text) {
+                                    accumulatedText += parsed.text;
+                                    let contentHtml = window.marked ? window.marked.parse(accumulatedText) : accumulatedText.replace(/\n/g, '<br>');
+                                    contentContainer.innerHTML = contentHtml;
+                                    aiHistory.scrollTop = aiHistory.scrollHeight;
+                                }
+                            } catch (e) {
+                                console.warn("[AI 스트리밍] 임시 JSON 파싱 대기 (불완전 데이터):", dataStr);
+                            }
+                        }
+                    }
+                }
+            }
+
+            console.log("[AI 스트리밍] 루프 탈출. 최종 수집 텍스트:", accumulatedText);
             aiSendBtn.disabled = false;
 
-            if (data.error) {
-                appendMessage("system", "오류: " + data.error);
-            } else {
+            if (accumulatedText) {
                 chatHistory.push({ role: "user", parts: text });
-                chatHistory.push({ role: "model", parts: data.text });
-                appendMessage("ai", data.text);
+                chatHistory.push({ role: "model", parts: accumulatedText });
             }
         } catch (err) {
+            console.error("[AI 스트리밍] 통신 예외 에러 발생:", err);
             loadingMsgDiv.remove();
             aiSendBtn.disabled = false;
             appendMessage("system", "네트워크 오류가 발생했습니다.");
