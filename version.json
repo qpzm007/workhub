@@ -1,6 +1,6 @@
 {
-  "version": "1.2.7",
+  "version": "1.2.8",
   "githubOwner": "qpzm007",
   "githubRepo": "workhub",
-  "releaseNotes": "v1.2.7 - 반복 업무 소급 복구 기능 추가 및 네트워크 화면 오류 수정"
+  "releaseNotes": "v1.2.8 - AI 어시스턴트 파일 시스템 실시간 연계 및 마인드맵 하위폴더 파일 트리 맵핑 오류 수정"
 }

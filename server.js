@@ -570,7 +570,8 @@ function crawlDirectory(dirPath, relativePath = "") {
             } else {
                 const ext = entry.split('.').pop().toLowerCase();
                 const normalizedRel = relPath.replace(/\\/g, '/');
-                const folderName = normalizedRel.includes('/') ? normalizedRel.split('/')[0] : "";
+                const lastSlashIdx = normalizedRel.lastIndexOf('/');
+                const folderName = lastSlashIdx !== -1 ? normalizedRel.substring(0, lastSlashIdx) : "";
                 filesList.push({
                     id: `file_${stats.ino}_${stats.mtimeMs}`,
                     name: entry,
@@ -2357,7 +2358,30 @@ app.post('/api/ai-chat', async (req, res) => {
             contextDataStr += `\n[공유자료실 (Shared Assets)]\n${JSON.stringify(assets)}\n`;
         }
         if (scope === 'folders' || scope === 'all') {
-             contextDataStr += `\n[폴더 (Folders)]\n현재 데스크톱 자료실(폴더) 데이터는 파일 시스템 기반으로 관리되며 상세 메타데이터는 생략되었습니다.\n`;
+            if (DESKTOP_ROOT) {
+                const nowTime = Date.now();
+                if (!cacheFiles || (nowTime - lastCacheTime > CACHE_DURATION_MS)) {
+                    try {
+                        cacheFiles = crawlDirectory(DESKTOP_ROOT);
+                        cacheFolders = crawlFolders(DESKTOP_ROOT);
+                        lastCacheTime = nowTime;
+                    } catch (e) {
+                        console.error("Crawl error during AI context prep:", e);
+                    }
+                }
+                const fileCount = cacheFiles ? cacheFiles.length : 0;
+                const folderCount = cacheFolders ? cacheFolders.length : 0;
+                const sampleFiles = (cacheFiles || []).slice(0, 100).map(f => ({ name: f.name, path: f.relativePath }));
+                const sampleFolders = (cacheFolders || []).slice(0, 50).map(f => ({ name: f.name, path: f.relativePath }));
+                
+                contextDataStr += `\n[바탕화면 실시간 폴더 및 파일 (Folders & Files)]\n`;
+                contextDataStr += `- 총 폴더 수: ${folderCount}개\n`;
+                contextDataStr += `- 총 파일 수: ${fileCount}개\n`;
+                contextDataStr += `- 주요 폴더 목록: ${JSON.stringify(sampleFolders)}\n`;
+                contextDataStr += `- 주요 파일 목록: ${JSON.stringify(sampleFiles)}\n`;
+            } else {
+                contextDataStr += `\n[바탕화면 실시간 폴더 및 파일 (Folders & Files)]\n- 설정된 바탕화면 동기화 경로가 없습니다.\n`;
+            }
         }
 
         const genAI = new GoogleGenerativeAI(globalSettings.apiKey);
