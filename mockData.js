@@ -207,7 +207,8 @@ const initialMockData = {
             itemsCount: 1,
             description: "완제품 패키징 종이 박스 및 스폰지 완충재 1,000 세트 납품 완료."
         }
-    ]
+    ],
+    recurringTasks: []
 };
 
 window.initialMockData = initialMockData;

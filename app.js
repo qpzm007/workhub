@@ -655,6 +655,7 @@ try {
         vendors: [],      // Partners (Vendors/Customers)
         components: [],   // Shared Assets
         orders: [],       // Tasks
+        recurringTasks: [], // Recurring Tasks
         activeView: localStorage.getItem("workhub_activeView") || "dashboard",
         activeFolder: localStorage.getItem("workhub_activeFolder") || null,
         currentExplorerPath: localStorage.getItem("workhub_currentExplorerPath") || "", // Relative path under DESKTOP_ROOT
@@ -719,18 +720,21 @@ try {
     async function loadStateFromServer(isPeriodic = false) {
         try {
             // 1. Load fast DB and directory structure first to render UI instantly
-            const [resPartners, resAssets, resTasks, resDir, resSchema] = await Promise.all([
-                fetch(`${API_BASE}/workcards`).then(r => r.json()),
-                fetch(`${API_BASE}/shared-assets`).then(r => r.json()),
-                fetch(`${API_BASE}/tasks`).then(r => r.json()),
-                fetch(`${API_BASE}/dir?path=`).then(r => r.json()),
-                fetch(`${API_BASE}/schema`).then(r => r.json())
+            const res = await Promise.all([
+                fetch(`${API_BASE}/workcards`).then(r => r.ok ? r.json() : []).catch(() => []),
+                fetch(`${API_BASE}/shared-assets`).then(r => r.ok ? r.json() : []).catch(() => []),
+                fetch(`${API_BASE}/tasks`).then(r => r.ok ? r.json() : []).catch(() => []),
+                fetch(`${API_BASE}/recurring-tasks`).then(r => r.ok ? r.json() : []).catch(() => []),
+                fetch(`${API_BASE}/dir?path=`).then(r => r.ok ? r.json() : {children:[]}).catch(() => ({children:[]})),
+                fetch(`${API_BASE}/schema`).then(r => r.ok ? r.json() : null).catch(() => null)
             ]);
 
-            state.vendors = resPartners;
-            state.components = resAssets;
-            state.orders = resTasks;
-            state.topLevelFolders = resDir.folders || [];
+            state.vendors = Array.isArray(res[0]) ? res[0] : [];
+            state.components = Array.isArray(res[1]) ? res[1] : [];
+            state.orders = Array.isArray(res[2]) ? res[2] : [];
+            state.recurringTasks = Array.isArray(res[3]) ? res[3] : [];
+            state.topLevelFolders = res[4] && res[4].folders ? res[4].folders : [];
+            state.userFolderSchema = res[5] && Object.keys(res[5]).length > 0 && !res[5].error ? res[5] : null;
 
             // Render UI elements immediately (No block on files crawl)
             updateStats();
@@ -776,15 +780,17 @@ try {
             // 첫 시도 실패 시 3초 후 자동 재시도, 재시도도 실패 시에만 LocalStorage Fallback 사용
             setTimeout(async () => {
                 try {
-                    const [resPartners, resAssets, resTasks, resDir] = await Promise.all([
-                        fetch(`${API_BASE}/workcards`).then(r => r.json()),
-                        fetch(`${API_BASE}/shared-assets`).then(r => r.json()),
-                        fetch(`${API_BASE}/tasks`).then(r => r.json()),
-                        fetch(`${API_BASE}/dir?path=`).then(r => r.json())
+                    const [resPartners, resAssets, resTasks, resRecurring, resDir] = await Promise.all([
+                        fetch(`${API_BASE}/workcards`).then(r => r.ok ? r.json() : []).catch(() => []),
+                        fetch(`${API_BASE}/shared-assets`).then(r => r.ok ? r.json() : []).catch(() => []),
+                        fetch(`${API_BASE}/tasks`).then(r => r.ok ? r.json() : []).catch(() => []),
+                        fetch(`${API_BASE}/recurring-tasks`).then(r => r.ok ? r.json() : []).catch(() => []),
+                        fetch(`${API_BASE}/dir?path=`).then(r => r.ok ? r.json() : {folders:[]}).catch(() => ({folders:[]}))
                     ]);
                     state.vendors = resPartners;
                     state.components = resAssets;
                     state.orders = resTasks;
+                    state.recurringTasks = resRecurring;
                     state.topLevelFolders = resDir.folders || [];
                     updateStats();
                     renderSidebarFolders();
@@ -808,6 +814,7 @@ try {
             vendors: "workhub_vendors",
             components: "workhub_components",
             orders: "workhub_orders",
+            recurringTasks: "workhub_recurringTasks",
             version: "workhub_storage_version"
         };
 
@@ -817,6 +824,7 @@ try {
             localStorage.removeItem(storageKeys.vendors);
             localStorage.removeItem(storageKeys.components);
             localStorage.removeItem(storageKeys.orders);
+            localStorage.removeItem(storageKeys.recurringTasks);
             localStorage.setItem(storageKeys.version, "1");
         }
 
@@ -832,11 +840,15 @@ try {
         if (!localStorage.getItem(storageKeys.orders)) {
             localStorage.setItem(storageKeys.orders, JSON.stringify([]));
         }
+        if (!localStorage.getItem(storageKeys.recurringTasks)) {
+            localStorage.setItem(storageKeys.recurringTasks, JSON.stringify([]));
+        }
 
         state.files = JSON.parse(localStorage.getItem(storageKeys.files));
         state.vendors = JSON.parse(localStorage.getItem(storageKeys.vendors));
         state.components = JSON.parse(localStorage.getItem(storageKeys.components));
         state.orders = JSON.parse(localStorage.getItem(storageKeys.orders));
+        state.recurringTasks = JSON.parse(localStorage.getItem(storageKeys.recurringTasks));
         state.topLevelFolders = [];
         state.folders = [];
 
@@ -866,6 +878,7 @@ try {
             if (key === 'vendors') endpoint = 'workcards';
             else if (key === 'components') endpoint = 'shared-assets';
             else if (key === 'orders') endpoint = 'tasks';
+            else if (key === 'recurringTasks') endpoint = 'recurring-tasks';
 
             const url = `${API_BASE}/${endpoint}`;
             const bodyStr = JSON.stringify(payload);
@@ -938,6 +951,9 @@ try {
             modalBackdrop.classList.remove("flex");
         }
     }
+    // Expose for use outside main DOMContentLoaded scope
+    window.openModal = openModal;
+    window.closeModal = closeModal;
 
     function closeAllModals() {
         activeModals.forEach(modalId => closeModal(modalId));
@@ -2737,7 +2753,10 @@ try {
                 <div class="flex justify-between items-start mb-1">
                     <span class="text-[10px] font-bold opacity-80">${urgInfo.icon} ${urgInfo.label}</span>
                 </div>
-                <h3 class="text-sm font-semibold leading-snug ${titleColor}">${task.title}</h3>
+                <h3 class="text-sm font-semibold leading-snug ${titleColor}">
+                    ${task.isRecurringInstance ? '<span class="inline-flex items-center gap-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] mr-1"><i class="fa-solid fa-rotate"></i> 반복</span>' : ''}
+                    ${task.title}
+                </h3>
                 <div class="flex items-center justify-end mt-3 text-xs ${subColor}">
                     ${task.description ? `<i class="fa-solid fa-file-lines"></i>` : ''}
                 </div>
@@ -6163,3 +6182,398 @@ document.getElementById("network-task-selector")?.addEventListener("change", asy
     }
 });
 
+// -------------------------------------------------------------
+// 12. AI CHAT (Gemini)
+// -------------------------------------------------------------
+document.addEventListener("DOMContentLoaded", () => {
+    const aiInput = document.getElementById("ai-chat-input");
+    const aiSendBtn = document.getElementById("btn-ai-send");
+    const aiHistory = document.getElementById("ai-chat-history");
+    const aiLoading = document.getElementById("ai-chat-loading");
+    const aiPlaceholder = document.getElementById("ai-chat-placeholder");
+    
+    let chatHistory = [];
+
+    if(!aiInput || !aiSendBtn || !aiHistory) return;
+
+    aiInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendAiMessage();
+        }
+    });
+
+    aiSendBtn.addEventListener("click", sendAiMessage);
+
+    aiInput.addEventListener("input", function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+
+    async function sendAiMessage() {
+        const text = aiInput.value.trim();
+        if (!text) return;
+
+        if(aiPlaceholder) aiPlaceholder.style.display = 'none';
+
+        appendMessage("user", text);
+        aiInput.value = "";
+        aiInput.style.height = "auto";
+        aiSendBtn.disabled = true;
+
+        // Show typing indicator in chat history
+        let loadingMsgDiv = document.createElement("div");
+        loadingMsgDiv.className = "flex gap-4 w-full justify-start animate-fade-in";
+        loadingMsgDiv.innerHTML = `
+            <div class="flex-shrink-0 mt-1">
+                <i class="fa-solid fa-sparkles text-indigo-300 text-xl animate-pulse"></i>
+            </div>
+            <div class="text-slate-500 text-[15px] flex items-center h-7 font-medium animate-pulse">답변을 생각하는 중입니다...</div>
+        `;
+        aiHistory.appendChild(loadingMsgDiv);
+        aiHistory.scrollTop = aiHistory.scrollHeight;
+
+        try {
+            const scopeSelect = document.getElementById("ai-context-scope");
+            const contextScope = scopeSelect ? scopeSelect.value : "tasks";
+            
+            const res = await fetch("/api/ai-chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: text, history: chatHistory, scope: contextScope })
+            });
+            const data = await res.json();
+            
+            loadingMsgDiv.remove();
+            aiSendBtn.disabled = false;
+
+            if (data.error) {
+                appendMessage("system", "오류: " + data.error);
+            } else {
+                chatHistory.push({ role: "user", parts: text });
+                chatHistory.push({ role: "model", parts: data.text });
+                appendMessage("ai", data.text);
+            }
+        } catch (err) {
+            loadingMsgDiv.remove();
+            aiSendBtn.disabled = false;
+            appendMessage("system", "네트워크 오류가 발생했습니다.");
+        }
+    }
+
+    function appendMessage(role, text) {
+        const msgDiv = document.createElement("div");
+        msgDiv.className = "flex gap-4 w-full " + (role === "user" ? "justify-end" : "justify-start");
+        
+        if (role === "user") {
+            let safeText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            msgDiv.innerHTML = `
+                <div class="bg-[#f1f3f4] text-slate-800 rounded-3xl px-5 py-3 max-w-[85%] text-[15px] whitespace-pre-wrap">${safeText}</div>
+            `;
+        } else if (role === "system") {
+             msgDiv.innerHTML = `
+                <div class="bg-red-50 text-red-600 border border-red-100 rounded-[24px] px-6 py-3 max-w-[85%] text-[15px] mx-auto shadow-sm">${text}</div>
+            `;
+        } else {
+            let contentHtml = window.marked ? marked.parse(text) : text.replace(/\n/g, '<br>');
+            msgDiv.innerHTML = `
+                <div class="flex-shrink-0 mt-1">
+                    <i class="fa-solid fa-sparkles text-indigo-500 text-xl"></i>
+                </div>
+                <div class="text-slate-800 max-w-full text-[15px] leading-relaxed markdown-body w-full overflow-hidden">${contentHtml}</div>
+            `;
+        }
+        
+        aiHistory.appendChild(msgDiv);
+        aiHistory.scrollTop = aiHistory.scrollHeight;
+    }
+// ===== END OF AI CHAT LISTENER =====
+});
+
+// =========================================================================
+// RECURRING TASKS LOGIC
+// (독립 블록 - window._workHubState / window.openModal 사용)
+// =========================================================================
+
+window.openRecurringTasksModal = function() {
+    window.renderRecurringKanban();
+    if (window.openModal) {
+        window.openModal("modal-recurring-tasks");
+    }
+};
+
+window.closeRecurringTasksModal = function() {
+    if (window.closeModal) {
+        window.closeModal("modal-recurring-tasks");
+    }
+};
+
+window.renderRecurringKanban = function() {
+    const state = window._workHubState;
+    if (!state) return;
+    const columns = ['daily', 'weekly', 'monthly', 'yearly', 'adhoc'];
+    columns.forEach(col => {
+        const el = document.getElementById(`col-rt-${col}`);
+        if (el) el.innerHTML = '';
+    });
+
+    // Badge update
+    const count = state.recurringTasks ? state.recurringTasks.length : 0;
+    const badge1 = document.getElementById('badge-recurring');
+    if (badge1) badge1.textContent = count;
+
+    (state.recurringTasks || []).forEach(task => {
+        const colEl = document.getElementById(`col-rt-${task.type}`);
+        if (!colEl) return;
+
+        let cycleText = "설정 없음";
+        if (task.cycle) {
+            if (task.type === 'daily') cycleText = `매일 ${task.cycle.time || ''}`;
+            if (task.type === 'weekly') cycleText = `${(task.cycle.days || []).join(',')} ${task.cycle.time || ''}`;
+            if (task.type === 'monthly') cycleText = `매월 ${task.cycle.date}일 ${task.cycle.time || ''}`;
+            if (task.type === 'yearly') cycleText = `매년 ${task.cycle.month}월 ${task.cycle.date}일 ${task.cycle.time || ''}`;
+            if (task.type === 'adhoc') cycleText = `특정일: ${task.cycle.date || ''} ${task.cycle.time || ''}`;
+        }
+
+        const html = `
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer relative group flex flex-col gap-2"
+                 onclick="openRecurringTaskDetailModal('${task.id}')" draggable="true" ondragstart="dragRt(event, '${task.id}')">
+                <div class="flex justify-between items-start">
+                    <span class="font-bold text-sm text-slate-800 line-clamp-2">${task.title}</span>
+                    ${!task.isActive ? '<span class="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px] font-bold">완료</span>' : ''}
+                </div>
+                <div class="text-xs text-indigo-600 font-medium flex items-center gap-1">
+                    <i class="fa-regular fa-clock"></i> ${cycleText}
+                </div>
+                ${task.endDate ? `<div class="text-[10px] text-slate-400">종료일: ${task.endDate}</div>` : ''}
+            </div>
+        `;
+        colEl.insertAdjacentHTML('beforeend', html);
+    });
+
+    // Drag and drop setup
+    columns.forEach(col => {
+        const el = document.getElementById(`col-rt-${col}`);
+        if (!el) return;
+        el.ondragover = (e) => { e.preventDefault(); el.classList.add('bg-indigo-50/50', 'border-indigo-200'); };
+        el.ondragleave = () => { el.classList.remove('bg-indigo-50/50', 'border-indigo-200'); };
+        el.ondrop = (e) => {
+            e.preventDefault();
+            el.classList.remove('bg-indigo-50/50', 'border-indigo-200');
+            const s = window._workHubState;
+            const taskId = e.dataTransfer.getData("text");
+            const task = (s.recurringTasks || []).find(t => t.id === taskId);
+            if (task && task.type !== col) {
+                task.type = col;
+                task.cycle = { time: "09:00" };
+                if (window.syncData) window.syncData('recurringTasks', s.recurringTasks);
+                window.renderRecurringKanban();
+            }
+        };
+    });
+};
+
+window.dragRt = function(ev, id) {
+    ev.dataTransfer.setData("text", id);
+};
+
+window.handleNewRecurringTaskSubmit = function(e) {
+    e.preventDefault();
+    const state = window._workHubState;
+    if (!state) return;
+    const input = document.getElementById("new-recurring-task-input");
+    const title = input.value.trim();
+    if (!title) return;
+
+    if (!state.recurringTasks) state.recurringTasks = [];
+    const newTask = {
+        id: 'rt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        title: title,
+        type: 'daily',
+        cycle: { time: '09:00' },
+        endDate: '',
+        isActive: true,
+        lastGenerated: null
+    };
+    state.recurringTasks.push(newTask);
+    if (window.syncData) window.syncData('recurringTasks', state.recurringTasks);
+    input.value = "";
+    window.renderRecurringKanban();
+};
+
+window.openRecurringTaskDetailModal = function(taskId) {
+    const state = window._workHubState;
+    if (!state) return;
+    const task = (state.recurringTasks || []).find(t => t.id === taskId);
+    if (!task) return;
+
+    document.getElementById('rt-detail-id').value = task.id;
+    document.getElementById('rt-detail-title').value = task.title;
+    document.getElementById('rt-detail-type').value = task.type;
+    document.getElementById('rt-detail-enddate').value = task.endDate || '';
+
+    ['daily', 'weekly', 'monthly', 'yearly', 'adhoc'].forEach(t => document.getElementById(`rt-setup-${t}`).classList.add('hidden'));
+    document.getElementById(`rt-setup-${task.type}`).classList.remove('hidden');
+
+    const c = task.cycle || {};
+    if (task.type === 'daily') {
+        document.getElementById('rt-time-daily').value = c.time || '09:00';
+    } else if (task.type === 'weekly') {
+        document.getElementById('rt-time-weekly').value = c.time || '09:00';
+        const checkboxes = document.querySelectorAll('#rt-days-weekly input[type="checkbox"]');
+        checkboxes.forEach(cb => cb.checked = (c.days || []).includes(cb.value));
+    } else if (task.type === 'monthly') {
+        document.getElementById('rt-time-monthly').value = c.time || '09:00';
+        document.getElementById('rt-date-monthly').value = c.date || 1;
+    } else if (task.type === 'yearly') {
+        document.getElementById('rt-time-yearly').value = c.time || '09:00';
+        document.getElementById('rt-month-yearly').value = c.month || 1;
+        document.getElementById('rt-date-yearly').value = c.date || 1;
+    } else if (task.type === 'adhoc') {
+        document.getElementById('rt-date-adhoc').value = c.date || '';
+        document.getElementById('rt-time-adhoc').value = c.time || '09:00';
+    }
+
+    if (window.openModal) window.openModal("modal-recurring-task-detail");
+};
+
+window.closeRecurringTaskDetailModal = function() {
+    if (window.closeModal) window.closeModal("modal-recurring-task-detail");
+};
+
+window.updateRtDetailCycleUI = function() {
+    const type = document.getElementById('rt-detail-type').value;
+    ['daily', 'weekly', 'monthly', 'yearly', 'adhoc'].forEach(t => document.getElementById(`rt-setup-${t}`).classList.add('hidden'));
+    document.getElementById(`rt-setup-${type}`).classList.remove('hidden');
+};
+
+window.saveRecurringTaskDetail = function() {
+    const state = window._workHubState;
+    if (!state) return;
+    const taskId = document.getElementById('rt-detail-id').value;
+    const task = (state.recurringTasks || []).find(t => t.id === taskId);
+    if (!task) return;
+
+    task.title = document.getElementById('rt-detail-title').value;
+    task.type = document.getElementById('rt-detail-type').value;
+    task.endDate = document.getElementById('rt-detail-enddate').value;
+
+    let c = {};
+    if (task.type === 'daily') {
+        c.time = document.getElementById('rt-time-daily').value;
+    } else if (task.type === 'weekly') {
+        c.time = document.getElementById('rt-time-weekly').value;
+        const checks = document.querySelectorAll('#rt-days-weekly input[type="checkbox"]:checked');
+        c.days = Array.from(checks).map(cb => cb.value);
+    } else if (task.type === 'monthly') {
+        c.time = document.getElementById('rt-time-monthly').value;
+        c.date = document.getElementById('rt-date-monthly').value;
+    } else if (task.type === 'yearly') {
+        c.time = document.getElementById('rt-time-yearly').value;
+        c.month = document.getElementById('rt-month-yearly').value;
+        c.date = document.getElementById('rt-date-yearly').value;
+    } else if (task.type === 'adhoc') {
+        c.time = document.getElementById('rt-time-adhoc').value;
+        c.date = document.getElementById('rt-date-adhoc').value;
+    }
+    task.cycle = c;
+
+    if (window.syncData) window.syncData('recurringTasks', state.recurringTasks);
+    window.closeRecurringTaskDetailModal();
+    window.renderRecurringKanban();
+    if (window.showToast) window.showToast("반복 업무가 저장되었습니다.", "success");
+};
+
+window.deleteRecurringTask = function() {
+    if (!confirm("정말 이 반복 업무를 삭제하시겠습니까?")) return;
+    const state = window._workHubState;
+    if (!state) return;
+    const taskId = document.getElementById('rt-detail-id').value;
+    state.recurringTasks = (state.recurringTasks || []).filter(t => t.id !== taskId);
+    if (window.syncData) window.syncData('recurringTasks', state.recurringTasks);
+    window.closeRecurringTaskDetailModal();
+    window.renderRecurringKanban();
+};
+
+// 자동 생성 백그라운드 체크 (1분마다)
+setInterval(() => {
+    const state = window._workHubState;
+    if (!state || !state.recurringTasks || state.recurringTasks.length === 0) return;
+
+    const now = new Date();
+    const currentDateStr = now.toISOString().split('T')[0];
+    const currentHourMin = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const currentDay = dayNames[now.getDay()];
+    let hasChanges = false;
+    let generatedCount = 0;
+
+    state.recurringTasks.forEach(task => {
+        if (!task.isActive) return;
+        if (task.endDate && task.endDate < currentDateStr) {
+            task.isActive = false;
+            hasChanges = true;
+            return;
+        }
+        const c = task.cycle || {};
+        if (!c.time) return;
+
+        let shouldGenerate = false;
+        let currentSlotKey = null;
+
+        if (task.type === 'daily') {
+            currentSlotKey = currentDateStr;
+            if (currentHourMin >= c.time) shouldGenerate = true;
+        } else if (task.type === 'weekly') {
+            if (c.days && c.days.includes(currentDay)) {
+                currentSlotKey = currentDateStr;
+                if (currentHourMin >= c.time) shouldGenerate = true;
+            }
+        } else if (task.type === 'monthly') {
+            if (now.getDate() === parseInt(c.date)) {
+                currentSlotKey = currentDateStr;
+                if (currentHourMin >= c.time) shouldGenerate = true;
+            }
+        } else if (task.type === 'yearly') {
+            if ((now.getMonth() + 1) === parseInt(c.month) && now.getDate() === parseInt(c.date)) {
+                currentSlotKey = currentDateStr;
+                if (currentHourMin >= c.time) shouldGenerate = true;
+            }
+        } else if (task.type === 'adhoc') {
+            if (c.date === currentDateStr) {
+                currentSlotKey = currentDateStr;
+                if (currentHourMin >= c.time) {
+                    shouldGenerate = true;
+                    task.isActive = false;
+                }
+            }
+        }
+
+        if (shouldGenerate && currentSlotKey && task.lastGenerated !== currentSlotKey) {
+            const newOrder = {
+                id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                title: task.title,
+                status: 'inbox',
+                folder: 'not_urgent_not_important',
+                assignee: task.assignee || '담당자 미정',
+                description: task.description || '',
+                deliveryDate: currentDateStr,
+                timeline: [],
+                isRecurringInstance: true
+            };
+            state.orders.unshift(newOrder);
+            task.lastGenerated = currentSlotKey;
+            hasChanges = true;
+            generatedCount++;
+        }
+    });
+
+    if (hasChanges) {
+        if (window.syncData) window.syncData('recurringTasks', state.recurringTasks);
+        if (window.syncData) window.syncData('orders', state.orders);
+        if (window.renderKanbanBoard) window.renderKanbanBoard();
+        if (generatedCount > 0 && window.showToast) {
+            window.showToast(`반복 업무 ${generatedCount}건이 수신함에 자동 등록되었습니다.`, "success");
+        }
+    }
+}, 60000);

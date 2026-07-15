@@ -13,6 +13,7 @@
     "http-server": "^14.1.1"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "chrome-launcher": "^1.2.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",

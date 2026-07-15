@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 let db; // default db connection (for settings)
 let dbTasks;
@@ -393,6 +394,10 @@ async function ensureTablesExist() {
             CREATE TABLE IF NOT EXISTS tasks (
                 id TEXT PRIMARY KEY, title TEXT, department TEXT, assignee TEXT, amount INTEGER,
                 status TEXT, deliveryDate TEXT, itemsCount INTEGER, description TEXT, priority TEXT, folder TEXT, completedAt INTEGER, timeline TEXT
+            );
+            CREATE TABLE IF NOT EXISTS recurring_tasks (
+                id TEXT PRIMARY KEY, title TEXT, type TEXT, cycle TEXT, endDate TEXT,
+                assignee TEXT, description TEXT, isActive INTEGER, lastGenerated TEXT, folder TEXT
             );
         `);
         try { await d.exec('ALTER TABLE tasks ADD COLUMN folder TEXT'); } catch(e) {}
@@ -1748,6 +1753,37 @@ app.get('/api/tasks', async (req, res) => {
     }
 });
 
+app.get('/api/recurring-tasks', async (req, res) => {
+    try {
+        const tasks = await dbTasks.all('SELECT * FROM recurring_tasks');
+        tasks.forEach(t => {
+            try { if (t.cycle) t.cycle = JSON.parse(t.cycle); } catch(e) {}
+            t.isActive = !!t.isActive;
+        });
+        res.json(tasks);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to load recurring tasks." });
+    }
+});
+
+app.post('/api/recurring-tasks', async (req, res) => {
+    try {
+        await dbTasks.run('DELETE FROM recurring_tasks');
+        const tasks = req.body;
+        const stmt = await dbTasks.prepare('INSERT INTO recurring_tasks (id, title, type, cycle, endDate, assignee, description, isActive, lastGenerated, folder) VALUES (?,?,?,?,?,?,?,?,?,?)');
+        for (const t of tasks) {
+            await stmt.run([
+                t.id, t.title, t.type, JSON.stringify(t.cycle || {}), t.endDate,
+                t.assignee, t.description, t.isActive ? 1 : 0, t.lastGenerated, t.folder
+            ]);
+        }
+        await stmt.finalize();
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: "Failed to save recurring tasks." });
+    }
+});
+
 app.post('/api/tasks', async (req, res) => {
     try {
         const tasks = req.body;
@@ -2297,3 +2333,57 @@ app.post('/api/ai/scan-card', async (req, res) => {
     }
 });
 
+// --- AI Chat Endpoint (Gemini) ---
+app.post('/api/ai-chat', async (req, res) => {
+    try {
+        const { message, history, scope = 'tasks' } = req.body;
+        
+        if (!globalSettings.apiKey) {
+            return res.status(400).json({ error: "Gemini API Key가 설정되지 않았습니다. 환경설정에서 API 키를 입력해주세요." });
+        }
+
+        let contextDataStr = "";
+        
+        if (scope === 'tasks' || scope === 'all') {
+            const tasks = await dbTasks.all("SELECT id, title, status, folder, assignee, deliveryDate, timeline FROM tasks ORDER BY id DESC LIMIT 100");
+            contextDataStr += `\n[업무관리 (Tasks)]\n${JSON.stringify(tasks)}\n`;
+        }
+        if (scope === 'vendors' || scope === 'all') {
+            const vendors = await dbWorkCards.all("SELECT card_id, name, company, position, mobile, email, phone FROM work_card_ledger ORDER BY card_id DESC LIMIT 100");
+            contextDataStr += `\n[명함첩 (WorkCards)]\n${JSON.stringify(vendors)}\n`;
+        }
+        if (scope === 'assets' || scope === 'all') {
+            const assets = await dbTasks.all("SELECT id, name, category, ownerName, status, description FROM shared_assets ORDER BY id DESC LIMIT 100");
+            contextDataStr += `\n[공유자료실 (Shared Assets)]\n${JSON.stringify(assets)}\n`;
+        }
+        if (scope === 'folders' || scope === 'all') {
+             contextDataStr += `\n[폴더 (Folders)]\n현재 데스크톱 자료실(폴더) 데이터는 파일 시스템 기반으로 관리되며 상세 메타데이터는 생략되었습니다.\n`;
+        }
+
+        const genAI = new GoogleGenerativeAI(globalSettings.apiKey);
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-2.5-flash",
+            systemInstruction: `당신은 WorkHub 시스템의 AI 비서입니다. 당신의 이름은 'Gemini 3.5 Pro'입니다.
+다음은 사용자가 선택한 사내 데이터 범위(${scope})의 요약입니다. 이 정보를 바탕으로 질문에 한국어로 친절하게 답변해주세요. 답변 시 표, 리스트 등 마크다운 서식을 적극 활용하세요.
+${contextDataStr}
+추가 지시사항: ${globalSettings.aiContext || "없음"}`
+        }); 
+
+        const formattedHistory = (history || []).map(msg => ({
+            role: msg.role === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.parts }]
+        }));
+
+        const chat = model.startChat({
+            history: formattedHistory
+        });
+
+        const result = await chat.sendMessage(message);
+        const responseText = result.response.text();
+        
+        res.json({ success: true, text: responseText });
+    } catch (err) {
+        console.error("AI Chat Exception:", err);
+        res.status(500).json({ error: "AI 요청 중 오류가 발생했습니다: " + err.message });
+    }
+});
