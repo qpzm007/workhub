@@ -88,6 +88,10 @@
                     <span class="font-medium group-hover:text-white">프로젝트 & 업무 관리</span>
                 </a>
             </div>
+            <a href="#" id="nav-ai-chat" data-view="ai-chat" class="nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors mt-1">
+                <i class="fa-solid fa-sparkles w-5 text-center mr-3 text-indigo-400"></i>
+                <span class="font-medium group-hover:text-white">AI 데이터 어시스턴트</span>
+            </a>
             <a href="#" id="nav-all-tasks" data-view="all-tasks" class="nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors mt-1">
                 <i class="fa-solid fa-table-list w-5 text-center mr-3 text-cyan-400"></i>
                 <span class="font-medium group-hover:text-white">전체 업무 리스트</span>
@@ -139,6 +143,10 @@
                     <span class="font-medium">프로젝트 & 업무 관리</span>
                 </a>
             </div>
+            <a href="#" data-view="ai-chat" class="mobile-nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors mt-1">
+                <i class="fa-solid fa-sparkles w-5 text-center mr-3 text-indigo-400"></i>
+                <span class="font-medium">AI 데이터 어시스턴트</span>
+            </a>
             <a href="#" data-view="all-tasks" class="mobile-nav-btn flex items-center px-3 py-2.5 hover:bg-slate-800 rounded-lg group transition-colors mt-1">
                 <i class="fa-solid fa-table-list w-5 text-center mr-3 text-cyan-400"></i>
                 <span class="font-medium">전체 업무 리스트</span>
@@ -402,7 +410,53 @@
                 </div>
             </section>
 
-            <!-- 5. AI PROJECT TASK KANBAN VIEW -->
+            <!-- AI CHAT VIEW -->
+        <div id="view-ai-chat" class="view-section hidden h-full flex-col p-6 space-y-6 animate-fade-in relative bg-slate-50/50">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col h-full overflow-hidden">
+                <!-- Header -->
+                <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+                            <i class="fa-solid fa-sparkles"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-800 leading-tight">AI 데이터 어시스턴트 (Gemini)</h2>
+                            <p class="text-xs text-slate-500">사내 데이터를 활용하여 질문에 답변합니다.</p>
+                        </div>
+                    </div>
+                    <div>
+                        <select id="ai-context-scope" class="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="all">모든 데이터 통합 검색</option>
+                            <option value="tasks">프로젝트 & 업무관리 검색</option>
+                            <option value="vendors">명함첩 & 고객사 검색</option>
+                            <option value="assets">공유 자료실 검색</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Chat History Area -->
+                <div id="ai-chat-history" class="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50 relative scroll-smooth">
+                    <!-- Placeholder -->
+                    <div id="ai-chat-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-center opacity-50">
+                        <i class="fa-solid fa-robot text-6xl text-slate-300 mb-4"></i>
+                        <p class="text-slate-500 font-medium">무엇이든 물어보세요!<br>선택한 범위 내의 사내 데이터를 바탕으로 답변해 드립니다.</p>
+                    </div>
+                    <!-- Messages will be appended here -->
+                </div>
+
+                <!-- Input Area -->
+                <div class="p-4 bg-white border-t border-slate-200 shrink-0">
+                    <div class="relative flex items-end bg-slate-100 rounded-2xl border border-slate-200 p-2 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition-all">
+                        <textarea id="ai-chat-input" rows="1" class="w-full bg-transparent border-none focus:ring-0 text-sm py-2 px-3 resize-none outline-none max-h-32 text-slate-800 placeholder-slate-400" placeholder="메시지를 입력하세요 (Shift+Enter로 줄바꿈)"></textarea>
+                        <button id="btn-ai-send" class="ml-2 w-10 h-10 shrink-0 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed mb-0.5">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. AI PROJECT TASK KANBAN VIEW -->
             <section id="view-orders" class="view-pane animate-fade-in flex-1 flex flex-col hidden h-full relative overflow-hidden">
                 <!-- AI Smart Capture Header -->
                 <div class="bg-white shadow-sm rounded-xl p-4 flex gap-4 items-center mb-6 border border-slate-200">
@@ -517,6 +571,7 @@
                                 <i class="fa-solid fa-clock text-blue-500"></i> 타임트래커 (업무 상세)
                             </h2>
                             <div class="flex items-center space-x-2">
+                                <button id="btn-fs-task-make-recurring" class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-sm font-bold border border-indigo-200 shadow-sm transition-colors"><i class="fa-solid fa-rotate mr-1"></i>반복 업무로 등록</button>
                                 <button id="btn-fs-task-folder-create" class="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-bold shadow hover:bg-emerald-600 transition-colors hidden"><i class="fa-solid fa-folder-plus mr-1"></i>폴더 생성</button>
                                 <button id="btn-fs-task-save" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow hover:bg-blue-700 transition-colors">저장 후 닫기</button>
                                 <button id="btn-close-fs-task" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
@@ -1438,14 +1493,7 @@
                         <h2 class="text-xl font-extrabold text-slate-800">반복 업무 관리</h2>
                         <p class="text-sm text-slate-500 font-medium mt-0.5">주기적으로 반복되는 업무를 관리합니다.</p>
                     </div>
-                    <div class="w-1/2">
-                        <form id="rt-quick-capture-form" class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <i class="fa-solid fa-bolt text-indigo-500"></i>
-                            </div>
-                            <input type="text" id="rt-quick-capture-input" placeholder="새 반복 업무 내용 입력 후 엔터..." class="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 rounded-lg text-sm transition-all shadow-inner outline-none">
-                        </form>
-                    </div>
+
                 </div>
                 </div>
                 
@@ -1872,7 +1920,7 @@
     <!-- JavaScript Files -->
     <script src="mockData.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <script src="app.js?v=rt10"></script>
-    <script src="recurring-tasks.js?v=rt10"></script>
+    <script src="app.js?v=rt16"></script>
+    <script src="recurring-tasks.js?v=rt16"></script>
 </body>
 </html>

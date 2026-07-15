@@ -871,7 +871,8 @@ try {
     }
 
     // Save functions sending sync calls to backend
-    async function syncData(key, payload) {
+    window.syncData = async function syncData(key, payload) {
+        window.syncData = syncData;
         state[key] = payload;
         try {
             let endpoint = key;
@@ -2684,7 +2685,8 @@ try {
     let kanbanParaFilter = 'all';
     let currentSelectedTask = null;
 
-    function renderKanbanBoard() {
+    window.renderKanbanBoard = function renderKanbanBoard() {
+        window.renderKanbanBoard = renderKanbanBoard;
         const columns = {
             inbox: document.getElementById("col-inbox"),
             todo: document.getElementById("col-todo"),
@@ -2749,12 +2751,22 @@ try {
             const titleColor = urgInfo.text === 'white' ? 'text-white' : 'text-slate-800';
             const subColor = urgInfo.text === 'white' ? 'opacity-80 text-white' : 'text-slate-500';
 
+            let rtBadgeHtml = '';
+            if (state.recurringTasks) {
+                const rt = state.recurringTasks.find(r => r.title === task.title && r.isActive);
+                if (rt || task.isRecurringInstance) {
+                    const typeMap = { 'daily': '일반복', 'weekly': '주반복', 'monthly': '월반복', 'yearly': '연반복', 'adhoc': '수시반복' };
+                    const label = rt ? (typeMap[rt.type] || '반복') : '반복';
+                    rtBadgeHtml = `<span class="absolute top-2 right-2 inline-flex items-center gap-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] font-bold shadow-sm z-10"><i class="fa-solid fa-rotate"></i> ${label}</span>`;
+                }
+            }
+
             card.innerHTML = `
                 <div class="flex justify-between items-start mb-1">
                     <span class="text-[10px] font-bold opacity-80">${urgInfo.icon} ${urgInfo.label}</span>
                 </div>
                 <h3 class="text-sm font-semibold leading-snug ${titleColor}">
-                    ${task.isRecurringInstance ? '<span class="inline-flex items-center gap-1 bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded text-[10px] mr-1"><i class="fa-solid fa-rotate"></i> 반복</span>' : ''}
+                    ${rtBadgeHtml}
                     ${task.title}
                 </h3>
                 <div class="flex items-center justify-end mt-3 text-xs ${subColor}">
@@ -3722,6 +3734,20 @@ try {
             else {
                 document.getElementById("task-files-list").innerHTML = "<li class='text-xs text-slate-400'>네트워크 업무에서는 파일 조회가 비활성화됩니다.</li>";
             }
+            // --- Update Recurring Task Button ---
+            const btnMakeRecurring = document.getElementById("btn-fs-task-make-recurring");
+            if (btnMakeRecurring) {
+                const existingRt = (state.recurringTasks || []).find(rt => rt.title === task.title);
+                if (existingRt) {
+                    btnMakeRecurring.innerHTML = '<i class="fa-solid fa-check mr-1"></i>반복 업무 설정됨';
+                    btnMakeRecurring.className = 'px-4 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm font-bold border border-green-200 shadow-sm transition-colors';
+                } else {
+                    btnMakeRecurring.innerHTML = '<i class="fa-solid fa-rotate mr-1"></i>반복 업무로 등록';
+                    btnMakeRecurring.className = 'px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-sm font-bold border border-indigo-200 shadow-sm transition-colors';
+                }
+            }
+            // ------------------------------------
+
             // ------------------------------------
             
             // Disable Inputs if Network View

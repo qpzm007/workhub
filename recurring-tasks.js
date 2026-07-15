@@ -97,11 +97,16 @@ window.handleNewRecurringTaskSubmit = function(e) {
     window.renderRecurringKanban();
 };
 
-window.openRecurringTaskDetailModal = function(taskId) {
+window.openRecurringTaskDetailModal = function(taskId, defaultTitle = '') {
     const state = window._workHubState;
     if (!state) return;
-    const task = (state.recurringTasks || []).find(t => t.id === taskId);
-    if (!task) return;
+    
+    let task = { id: '', title: defaultTitle, type: 'daily', endDate: '', cycle: { time: '09:00' } };
+    
+    if (taskId) {
+        const existing = (state.recurringTasks || []).find(t => t.id === taskId);
+        if (existing) task = existing;
+    }
 
     document.getElementById('rt-detail-id').value = task.id;
     document.getElementById('rt-detail-title').value = task.title;
@@ -148,8 +153,25 @@ window.saveRecurringTaskDetail = function() {
     const state = window._workHubState;
     if (!state) return;
     const taskId = document.getElementById('rt-detail-id').value;
-    const task = (state.recurringTasks || []).find(t => t.id === taskId);
-    if (!task) return;
+    
+    let task = null;
+    let isNew = false;
+    
+    if (taskId) {
+        task = (state.recurringTasks || []).find(t => t.id === taskId);
+    } else {
+        isNew = true;
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0];
+        task = {
+            id: 'rt_' + Date.now() + '_' + Math.random().toString(36).substr(2,5),
+            isActive: true,
+            lastGenerated: dateStr // Prevent immediate duplication for today
+        };
+        if (!state.recurringTasks) state.recurringTasks = [];
+    }
+    
+    if (!task && !isNew) return;
 
     task.title = document.getElementById('rt-detail-title').value;
     task.type = document.getElementById('rt-detail-type').value;
@@ -172,6 +194,10 @@ window.saveRecurringTaskDetail = function() {
         c.date = document.getElementById('rt-date-adhoc').value;
     }
     task.cycle = c;
+    
+    if (isNew) {
+        state.recurringTasks.push(task);
+    }
 
     if (window.syncData) window.syncData('recurringTasks', state.recurringTasks);
     window.closeRecurringTaskDetailModal();
@@ -234,32 +260,22 @@ setInterval(() => {
     }
 }, 60000);
 
-// Quick Capture Listener
+// Make Recurring Listener from Task Detail
 document.addEventListener('DOMContentLoaded', () => {
-    const quickCaptureForm = document.getElementById('rt-quick-capture-form');
-    const quickCaptureInput = document.getElementById('rt-quick-capture-input');
-    if (quickCaptureForm && quickCaptureInput) {
-        quickCaptureForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const title = quickCaptureInput.value.trim();
-            if (!title) return;
-            
+    // Dynamic binding because the button might be loaded after DOM depending on modal logic
+    // Actually the button is hardcoded in HTML so DOMContentLoaded is fine.
+    const btnMakeRecurring = document.getElementById('btn-fs-task-make-recurring');
+    if (btnMakeRecurring) {
+        btnMakeRecurring.addEventListener('click', () => {
+            const titleInput = document.getElementById('task-detail-title');
+            let title = titleInput ? titleInput.value : '';
             const state = window._workHubState;
-            if (!state) return;
-            
-            if (!state.recurringTasks) state.recurringTasks = [];
-            state.recurringTasks.push({
-                id: 'rt_' + Date.now() + '_' + Math.random().toString(36).substr(2,5),
-                title: title,
-                type: 'daily', // default to daily
-                isActive: true,
-                cycle: { time: '09:00' } // default 9am
-            });
-            
-            if (window.syncData) window.syncData('recurringTasks', state.recurringTasks);
-            window.renderRecurringKanban();
-            quickCaptureInput.value = '';
-            if (window.showToast) window.showToast("새 반복 업무가 일일 업무로 추가되었습니다.", "success");
+            const existingRt = (state && state.recurringTasks) ? state.recurringTasks.find(rt => rt.title === title) : null;
+            if (existingRt) {
+                window.openRecurringTaskDetailModal(existingRt.id, title);
+            } else {
+                window.openRecurringTaskDetailModal('', title);
+            }
         });
     }
 });
