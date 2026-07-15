@@ -6576,18 +6576,27 @@ setInterval(() => {
         }
 
         if (shouldGenerate && currentSlotKey && task.lastGenerated !== currentSlotKey) {
-            const newOrder = {
-                id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                title: task.title,
-                status: 'inbox',
-                folder: 'not_urgent_not_important',
-                assignee: task.assignee || '담당자 미정',
-                description: task.description || '',
-                deliveryDate: currentDateStr,
-                timeline: [],
-                isRecurringInstance: true
-            };
-            state.orders.unshift(newOrder);
+            const existingOrder = state.orders.find(o => o.title === task.title);
+            if (existingOrder) {
+                existingOrder.status = 'inbox';
+                if (existingOrder.completedAt) {
+                    delete existingOrder.completedAt;
+                }
+                existingOrder.deliveryDate = currentDateStr;
+            } else {
+                const newOrder = {
+                    id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                    title: task.title,
+                    status: 'inbox',
+                    folder: 'not_urgent_not_important',
+                    assignee: task.assignee || '담당자 미정',
+                    description: task.description || '',
+                    deliveryDate: currentDateStr,
+                    timeline: [],
+                    isRecurringInstance: true
+                };
+                state.orders.unshift(newOrder);
+            }
             task.lastGenerated = currentSlotKey;
             hasChanges = true;
             generatedCount++;
