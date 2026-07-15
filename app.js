@@ -6128,6 +6128,8 @@ try {
 
 // --- Network Members & Selector Logic ---
 window.updateNetworkMembersDropdown = function() {
+    const state = window._workHubState;
+    if (!state) return;
     const selector = document.getElementById("network-task-selector");
     if (!selector) return;
     
@@ -6153,6 +6155,8 @@ window.updateNetworkMembersDropdown = function() {
 };
 
 document.getElementById("btn-add-network-member")?.addEventListener("click", async () => {
+    const state = window._workHubState;
+    if (!state) return;
     const name = prompt("추가할 부서원 이름을 입력하세요 (예: 홍길동):");
     if (!name || name.trim() === '') return;
     const trimmed = name.trim();
@@ -6175,6 +6179,8 @@ document.getElementById("btn-add-network-member")?.addEventListener("click", asy
 });
 
 document.getElementById("network-task-selector")?.addEventListener("change", async (e) => {
+    const state = window._workHubState;
+    if (!state) return;
     const val = e.target.value;
     if (val === "local") {
         state.isNetworkView = false;

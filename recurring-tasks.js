@@ -150,60 +150,64 @@ window.updateRtDetailCycleUI = function() {
 };
 
 window.saveRecurringTaskDetail = function() {
-    const state = window._workHubState;
-    if (!state) return;
-    const taskId = document.getElementById('rt-detail-id').value;
-    
-    let task = null;
-    let isNew = false;
-    
-    if (taskId) {
-        task = (state.recurringTasks || []).find(t => t.id === taskId);
-    } else {
-        isNew = true;
-        const now = new Date();
-        const dateStr = now.toISOString().split('T')[0];
-        task = {
-            id: 'rt_' + Date.now() + '_' + Math.random().toString(36).substr(2,5),
-            isActive: true,
-            lastGenerated: dateStr // Prevent immediate duplication for today
-        };
-        if (!state.recurringTasks) state.recurringTasks = [];
-    }
-    
-    if (!task && !isNew) return;
+    try {
+        const state = window._workHubState;
+        if (!state) return;
+        const taskId = document.getElementById('rt-detail-id').value;
+        
+        let task = null;
+        let isNew = false;
+        
+        if (taskId) {
+            task = (state.recurringTasks || []).find(t => t.id === taskId);
+        } else {
+            isNew = true;
+            task = {
+                id: 'rt_' + Date.now() + '_' + Math.random().toString(36).substr(2,5),
+                isActive: true,
+                lastGenerated: null
+            };
+            if (!state.recurringTasks) state.recurringTasks = [];
+        }
+        
+        if (!task && !isNew) return;
 
-    task.title = document.getElementById('rt-detail-title').value;
-    task.type = document.getElementById('rt-detail-type').value;
-    task.endDate = document.getElementById('rt-detail-enddate').value;
+        task.title = document.getElementById('rt-detail-title').value;
+        task.type = document.getElementById('rt-detail-type').value;
+        task.endDate = document.getElementById('rt-detail-enddate').value;
 
-    let c = {};
-    if (task.type === 'daily') { c.time = document.getElementById('rt-time-daily').value; }
-    else if (task.type === 'weekly') {
-        c.time = document.getElementById('rt-time-weekly').value;
-        c.days = Array.from(document.querySelectorAll('#rt-days-weekly input:checked')).map(cb => cb.value);
-    } else if (task.type === 'monthly') {
-        c.time = document.getElementById('rt-time-monthly').value;
-        c.date = document.getElementById('rt-date-monthly').value;
-    } else if (task.type === 'yearly') {
-        c.time = document.getElementById('rt-time-yearly').value;
-        c.month = document.getElementById('rt-month-yearly').value;
-        c.date = document.getElementById('rt-date-yearly').value;
-    } else if (task.type === 'adhoc') {
-        c.time = document.getElementById('rt-time-adhoc').value;
-        c.date = document.getElementById('rt-date-adhoc').value;
-    }
-    task.cycle = c;
-    task.lastGenerated = null;
-    
-    if (isNew) {
-        state.recurringTasks.push(task);
-    }
+        let c = {};
+        if (task.type === 'daily') { c.time = document.getElementById('rt-time-daily').value; }
+        else if (task.type === 'weekly') {
+            c.time = document.getElementById('rt-time-weekly').value;
+            c.days = Array.from(document.querySelectorAll('#rt-days-weekly input:checked')).map(cb => cb.value);
+        } else if (task.type === 'monthly') {
+            c.time = document.getElementById('rt-time-monthly').value;
+            c.date = document.getElementById('rt-date-monthly').value;
+        } else if (task.type === 'yearly') {
+            c.time = document.getElementById('rt-time-yearly').value;
+            c.month = document.getElementById('rt-month-yearly').value;
+            c.date = document.getElementById('rt-date-yearly').value;
+        } else if (task.type === 'adhoc') {
+            c.time = document.getElementById('rt-time-adhoc').value;
+            c.date = document.getElementById('rt-date-adhoc').value;
+        }
+        task.cycle = c;
+        task.lastGenerated = null;
+        task.isActive = true;
+        
+        if (isNew) {
+            state.recurringTasks.push(task);
+        }
 
-    if (window.syncData) window.syncData('recurringTasks', state.recurringTasks);
-    window.closeRecurringTaskDetailModal();
-    window.renderRecurringKanban();
-    if (window.showToast) window.showToast("반복 업무가 저장되었습니다.", "success");
+        if (window.syncData) window.syncData('recurringTasks', state.recurringTasks);
+        window.closeRecurringTaskDetailModal();
+        window.renderRecurringKanban();
+        if (window.showToast) window.showToast("반복 업무가 저장되었습니다.", "success");
+    } catch (err) {
+        console.error("saveRecurringTaskDetail error:", err);
+        alert("반복 업무 저장 중 오류 발생: " + err.message);
+    }
 };
 
 window.deleteRecurringTask = function() {
@@ -217,49 +221,106 @@ window.deleteRecurringTask = function() {
     window.renderRecurringKanban();
 };
 
-// 자동 생성 (1분마다)
+// 자동 생성 (1분마다 - 밀린 스케줄 소급 기능 포함)
 setInterval(() => {
     const state = window._workHubState;
+    console.log("[스케줄러] 체크 시작 - 현재 상태:", state ? "존재함" : "없음", "반복업무 수:", state && state.recurringTasks ? state.recurringTasks.length : 0);
     if (!state || !(state.recurringTasks || []).length) return;
 
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
+    const offset = now.getTimezoneOffset() * 60000;
+    const dateStr = new Date(now.getTime() - offset).toISOString().split('T')[0];
     const hhmm = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-    const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-    const today = dayNames[now.getDay()];
     let changed = false, genCount = 0;
+
+    // YYYY-MM-DD 포맷 헬퍼
+    const getFormatDate = (d) => {
+        const os = d.getTimezoneOffset() * 60000;
+        return new Date(d.getTime() - os).toISOString().split('T')[0];
+    };
 
     state.recurringTasks.forEach(task => {
         if (!task.isActive) return;
-        if (task.endDate && task.endDate < dateStr) { task.isActive = false; changed = true; return; }
         const c = task.cycle || {};
         if (!c.time) return;
 
-        let generate = false, slot = null;
-        if (task.type === 'daily') { slot = dateStr; if (hhmm >= c.time) generate = true; }
-        else if (task.type === 'weekly' && c.days && c.days.includes(today)) { slot = dateStr; if (hhmm >= c.time) generate = true; }
-        else if (task.type === 'monthly' && now.getDate() === parseInt(c.date)) { slot = dateStr; if (hhmm >= c.time) generate = true; }
-        else if (task.type === 'yearly' && (now.getMonth()+1) === parseInt(c.month) && now.getDate() === parseInt(c.date)) { slot = dateStr; if (hhmm >= c.time) generate = true; }
-        else if (task.type === 'adhoc' && c.date === dateStr) { slot = dateStr; if (hhmm >= c.time) { generate = true; task.isActive = false; } }
+        // 가장 최근에 실행되었어야 했던 예정일(lastExpectedDate) 산출
+        let lastExpectedDate = null;
+        let baseDate = new Date(now);
+        if (hhmm < c.time) {
+            baseDate.setDate(baseDate.getDate() - 1); // 지정 시간 전이면 어제 기준 역산
+        }
 
-        if (generate && slot && task.lastGenerated !== slot) {
-            const existingOrder = state.orders.find(o => o.title === task.title);
-            if (existingOrder) {
-                existingOrder.status = 'inbox';
-                if (existingOrder.completedAt) {
-                    delete existingOrder.completedAt;
+        if (task.type === 'daily') {
+            lastExpectedDate = getFormatDate(baseDate);
+        }
+        else if (task.type === 'weekly' && c.days && c.days.length > 0) {
+            const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+            let check = new Date(baseDate);
+            for (let i = 0; i < 7; i++) {
+                const dayName = dayNames[check.getDay()];
+                if (c.days.includes(dayName)) {
+                    lastExpectedDate = getFormatDate(check);
+                    break;
                 }
-                existingOrder.deliveryDate = dateStr;
-            } else {
-                state.orders.unshift({
-                    id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2,5),
-                    title: task.title, status: 'inbox', folder: 'not_urgent_not_important',
-                    assignee: task.assignee || '담당자 미정', description: task.description || '',
-                    deliveryDate: dateStr, timeline: [], isRecurringInstance: true
-                });
+                check.setDate(check.getDate() - 1);
             }
-            task.lastGenerated = slot;
-            changed = true; genCount++;
+        }
+        else if (task.type === 'monthly' && c.date) {
+            let check = new Date(baseDate.getFullYear(), baseDate.getMonth(), parseInt(c.date));
+            if (check > baseDate) {
+                check = new Date(baseDate.getFullYear(), baseDate.getMonth() - 1, parseInt(c.date));
+            }
+            lastExpectedDate = getFormatDate(check);
+        }
+        else if (task.type === 'yearly' && c.month && c.date) {
+            let check = new Date(baseDate.getFullYear(), parseInt(c.month) - 1, parseInt(c.date));
+            if (check > baseDate) {
+                check = new Date(baseDate.getFullYear() - 1, parseInt(c.month) - 1, parseInt(c.date));
+            }
+            lastExpectedDate = getFormatDate(check);
+        }
+        else if (task.type === 'adhoc' && c.date) {
+            const adhocDate = new Date(c.date + 'T' + c.time);
+            if (now >= adhocDate) {
+                lastExpectedDate = c.date;
+            }
+        }
+
+        console.log(`[스케줄러] 업무: "${task.title}" | 활성: ${task.isActive} | 최근예정일: ${lastExpectedDate} | 마지막실행: ${task.lastGenerated}`);
+
+        if (lastExpectedDate) {
+            // 종료일 체크
+            if (task.endDate && task.endDate < lastExpectedDate) {
+                console.log(`[스케줄러] "${task.title}" 종료일 경과로 자동 비활성화`);
+                task.isActive = false;
+                changed = true;
+                return;
+            }
+
+            // 마지막 실행일이 아예 없거나, 최근 예정일보다 과거인 경우 실행
+            if (!task.lastGenerated || task.lastGenerated < lastExpectedDate) {
+                const existingOrder = state.orders.find(o => o.title === task.title);
+                if (existingOrder) {
+                    console.log(`[스케줄러] 밀린 기존 카드 복귀 처리. 제목: "${task.title}"`);
+                    existingOrder.status = 'inbox';
+                    if (existingOrder.completedAt) {
+                        delete existingOrder.completedAt;
+                    }
+                    existingOrder.deliveryDate = dateStr;
+                } else {
+                    console.log(`[스케줄러] 밀린 카드 신규 복원 생성. 제목: "${task.title}"`);
+                    state.orders.unshift({
+                        id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2,5),
+                        title: task.title, status: 'inbox', folder: 'not_urgent_not_important',
+                        assignee: task.assignee || '담당자 미정', description: task.description || '',
+                        deliveryDate: dateStr, timeline: [], isRecurringInstance: true
+                    });
+                }
+                task.lastGenerated = lastExpectedDate; // 예정일로 마킹
+                changed = true;
+                genCount++;
+            }
         }
     });
 

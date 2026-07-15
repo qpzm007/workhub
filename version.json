@@ -1,6 +1,6 @@
 {
-  "version": "1.2.6",
+  "version": "1.2.7",
   "githubOwner": "qpzm007",
   "githubRepo": "workhub",
-  "releaseNotes": "v1.2.6 업데이트 적용됨"
+  "releaseNotes": "v1.2.7 - 반복 업무 소급 복구 기능 추가 및 네트워크 화면 오류 수정"
 }
