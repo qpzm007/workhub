@@ -194,6 +194,7 @@ window.saveRecurringTaskDetail = function() {
         c.date = document.getElementById('rt-date-adhoc').value;
     }
     task.cycle = c;
+    task.lastGenerated = null;
     
     if (isNew) {
         state.recurringTasks.push(task);
@@ -242,12 +243,21 @@ setInterval(() => {
         else if (task.type === 'adhoc' && c.date === dateStr) { slot = dateStr; if (hhmm >= c.time) { generate = true; task.isActive = false; } }
 
         if (generate && slot && task.lastGenerated !== slot) {
-            state.orders.unshift({
-                id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2,5),
-                title: task.title, status: 'inbox', folder: 'not_urgent_not_important',
-                assignee: task.assignee || '담당자 미정', description: task.description || '',
-                deliveryDate: dateStr, timeline: [], isRecurringInstance: true
-            });
+            const existingOrder = state.orders.find(o => o.title === task.title);
+            if (existingOrder) {
+                existingOrder.status = 'inbox';
+                if (existingOrder.completedAt) {
+                    delete existingOrder.completedAt;
+                }
+                existingOrder.deliveryDate = dateStr;
+            } else {
+                state.orders.unshift({
+                    id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2,5),
+                    title: task.title, status: 'inbox', folder: 'not_urgent_not_important',
+                    assignee: task.assignee || '담당자 미정', description: task.description || '',
+                    deliveryDate: dateStr, timeline: [], isRecurringInstance: true
+                });
+            }
             task.lastGenerated = slot;
             changed = true; genCount++;
         }

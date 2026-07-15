@@ -2705,6 +2705,12 @@ try {
 
         updateNotifications();
 
+        // 반복 업무 뱃지 갱신
+        const badgeRecurringEl = document.getElementById('badge-recurring');
+        if (badgeRecurringEl) {
+            badgeRecurringEl.textContent = state.recurringTasks ? state.recurringTasks.length : 0;
+        }
+
         let filteredTasks = state.orders;
         
         filteredTasks = filteredTasks.filter(task => {
