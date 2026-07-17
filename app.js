@@ -2251,11 +2251,11 @@ try {
 
         filteredVendors.forEach(v => {
             const card = document.createElement("div");
-            card.className = "bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all relative group h-full flex flex-col aspect-[90/50]";
+            card.className = "bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all relative group h-full flex flex-col aspect-[90/50] cursor-pointer";
             
             // Front Side
             card.innerHTML = `
-                <div class="p-5 flex flex-col h-full absolute inset-0 bg-white transition-all duration-500 group-hover:opacity-0 group-hover:pointer-events-none z-10" style="backface-visibility: hidden;">
+                <div class="p-5 flex flex-col h-full absolute inset-0 bg-white transition-all duration-500 z-10 front-side" style="backface-visibility: hidden;">
                     <div class="flex justify-between items-start mb-3">
                         <span class="px-2.5 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded uppercase tracking-wider">${v.relationship || 'PARTNER'}</span>
                         <div class="text-right">
@@ -2264,47 +2264,137 @@ try {
                         </div>
                     </div>
                     ${v.image_front_base64 && v.image_front_base64.startsWith('data:image') ? `<div class="flex-grow flex items-center justify-center overflow-hidden rounded mb-3 bg-slate-50 border border-slate-100"><img src="${v.image_front_base64}" class="max-h-full object-contain"></div>` : `<div class="flex-grow"></div>`}
-                    <div class="mt-auto space-y-1.5 text-xs text-slate-600">
-                        <p class="flex items-center"><i class="fa-solid fa-mobile-screen-button w-4 text-slate-400"></i> &nbsp;${v.mobile || '-'}</p>
-                        <p class="flex items-center truncate"><i class="fa-solid fa-envelope w-4 text-slate-400"></i> &nbsp;${v.email || '-'}</p>
+                    <div class="mt-auto space-y-1.5 text-xs text-slate-600 pr-8">
+                        <p class="flex items-center info-item" data-text="${v.mobile || ''}">
+                            <i class="fa-solid fa-mobile-screen-button w-4 text-slate-400"></i> &nbsp;
+                            <span class="copyable-text font-medium select-all">${v.mobile || '-'}</span>
+                            ${v.mobile ? `<button class="btn-copy-field ml-2 text-slate-400 hover:text-emerald-600 transition-opacity opacity-0 group-hover:opacity-100 p-0.5" title="복사"><i class="fa-regular fa-copy"></i></button>` : ''}
+                        </p>
+                        <p class="flex items-center truncate info-item" data-text="${v.email || ''}">
+                            <i class="fa-solid fa-envelope w-4 text-slate-400"></i> &nbsp;
+                            <span class="copyable-text font-medium select-all">${v.email || '-'}</span>
+                            ${v.email ? `<button class="btn-copy-field ml-2 text-slate-400 hover:text-emerald-600 transition-opacity opacity-0 group-hover:opacity-100 p-0.5" title="복사"><i class="fa-regular fa-copy"></i></button>` : ''}
+                        </p>
                     </div>
+                    
+                    <!-- 뒤집기 버튼 (우측 하단) -->
+                    <button class="btn-vendor-flip absolute bottom-3 right-3 text-slate-400 hover:text-emerald-600 transition-colors p-1 z-20" title="명함 뒤집기">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
                 </div>
                 
-                <!-- Back Side (Hover) -->
-                <div class="p-5 flex flex-col h-full absolute inset-0 bg-slate-800 text-white opacity-0 pointer-events-none transition-all duration-500 group-hover:opacity-100 group-hover:pointer-events-auto rotate-y-180 group-hover:rotate-y-0 z-20" style="transform: rotateY(-180deg); backface-visibility: hidden;">
+                <!-- Back Side -->
+                <div class="p-5 flex flex-col h-full absolute inset-0 bg-slate-800 text-white opacity-0 pointer-events-none transition-all duration-500 z-20 back-side" style="transform: rotateY(-180deg); backface-visibility: hidden;">
                     <div class="flex justify-between items-start mb-3">
                         <h3 class="text-lg font-bold text-white leading-tight">${v.name} <span class="text-xs text-amber-400 ml-1">${'★'.repeat(v.rating || 3)}</span></h3>
-                        <div class="flex gap-2">
-                            <button class="btn-vendor-edit text-slate-300 hover:text-white transition-colors"><i class="fa-solid fa-pen"></i></button>
-                            <button class="btn-vendor-delete text-red-400 hover:text-red-300 transition-colors"><i class="fa-solid fa-trash"></i></button>
+                        <div class="flex gap-2 items-center">
+                            <button class="btn-vendor-edit text-slate-300 hover:text-white transition-colors p-1"><i class="fa-solid fa-pen"></i></button>
+                            <button class="btn-vendor-delete text-red-400 hover:text-red-300 transition-colors p-1"><i class="fa-solid fa-trash"></i></button>
                         </div>
                     </div>
-                    <div class="flex-grow text-xs text-slate-300 flex flex-col gap-2 overflow-hidden">
+                    <div class="flex-grow text-xs text-slate-300 flex flex-col gap-1.5 overflow-y-auto pr-2 min-h-0">
                         <p><strong class="text-slate-400">태그:</strong> ${v.tags || '-'}</p>
                         <p><strong class="text-slate-400">만남:</strong> ${v.meet_location || '-'}</p>
-                        <p class="line-clamp-2"><strong class="text-slate-400">메모:</strong> ${v.memo || '-'}</p>
+                        <p><strong class="text-slate-400">메모:</strong> ${v.memo || '-'}</p>
                     </div>
-                    <div class="mt-auto text-xs text-slate-400 flex flex-col gap-1">
-                        ${v.phone ? `<p><i class="fa-solid fa-phone w-4"></i> &nbsp;${v.phone}</p>` : ''}
-                        <p><i class="fa-solid fa-building w-4"></i> &nbsp;${v.address || '-'}</p>
+                    <div class="mt-2 text-xs text-slate-400 flex flex-col gap-1 pr-8 shrink-0">
+                        ${v.phone ? `<p class="flex items-center info-item" data-text="${v.phone}"><i class="fa-solid fa-phone w-4 text-slate-400"></i> &nbsp;<span class="copyable-text font-medium select-all text-slate-300">${v.phone}</span><button class="btn-copy-field ml-2 text-slate-400 hover:text-white transition-opacity opacity-0 group-hover:opacity-100 p-0.5" title="복사"><i class="fa-regular fa-copy"></i></button></p>` : ''}
+                        <p class="flex items-center truncate info-item" data-text="${v.address || ''}">
+                            <i class="fa-solid fa-building w-4 text-slate-400"></i> &nbsp;
+                            <span class="copyable-text font-medium select-all text-slate-300">${v.address || '-'}</span>
+                            ${v.address ? `<button class="btn-copy-field ml-2 text-slate-400 hover:text-white transition-opacity opacity-0 group-hover:opacity-100 p-0.5" title="복사"><i class="fa-regular fa-copy"></i></button>` : ''}
+                        </p>
                     </div>
+                    
+                    <!-- 뒤집기 버튼 (우측 하단) -->
+                    <button class="btn-vendor-flip absolute bottom-3 right-3 text-slate-400 hover:text-white transition-colors p-1 z-30" title="명함 뒤집기">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
                 </div>
             `;
 
-            card.addEventListener('mouseenter', () => { 
-                const front = card.querySelector('.z-10');
-                const back = card.querySelector('.z-20');
-                if(front) front.style.transform = 'rotateY(180deg)';
-                if(back) back.style.transform = 'rotateY(0)';
+            let isFlipped = false;
+            const front = card.querySelector('.front-side');
+            const back = card.querySelector('.back-side');
+
+            function toggleFlip() {
+                isFlipped = !isFlipped;
+                if (isFlipped) {
+                    if (front) {
+                        front.style.transform = 'rotateY(180deg)';
+                        front.style.opacity = '0';
+                        front.style.pointerEvents = 'none';
+                    }
+                    if (back) {
+                        back.style.transform = 'rotateY(0)';
+                        back.style.opacity = '1';
+                        back.style.pointerEvents = 'auto';
+                    }
+                } else {
+                    if (front) {
+                        front.style.transform = 'rotateY(0)';
+                        front.style.opacity = '1';
+                        front.style.pointerEvents = 'auto';
+                    }
+                    if (back) {
+                        back.style.transform = 'rotateY(-180deg)';
+                        back.style.opacity = '0';
+                        back.style.pointerEvents = 'none';
+                    }
+                }
+            }
+
+            // Card body click handler (flip card, except when clicking interactive fields or selecting text)
+            card.addEventListener('click', (e) => {
+                const target = e.target;
+                if (window.getSelection().toString()) {
+                    return;
+                }
+                if (
+                    target.closest('.btn-copy-field') || 
+                    target.closest('.btn-vendor-edit') || 
+                    target.closest('.btn-vendor-delete') || 
+                    target.closest('.copyable-text')
+                ) {
+                    return;
+                }
+                toggleFlip();
             });
-            card.addEventListener('mouseleave', () => { 
-                const front = card.querySelector('.z-10');
-                const back = card.querySelector('.z-20');
-                if(front) front.style.transform = 'rotateY(0)';
-                if(back) back.style.transform = 'rotateY(-180deg)';
+
+            // Flip buttons click handler
+            card.querySelectorAll('.btn-vendor-flip').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleFlip();
+                });
+            });
+
+            // Copy buttons click handler
+            card.querySelectorAll('.btn-copy-field').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const infoItem = btn.closest('.info-item');
+                    const text = infoItem ? infoItem.getAttribute('data-text') : '';
+                    if (text) {
+                        navigator.clipboard.writeText(text).then(() => {
+                            showToast('클립보드에 복사되었습니다.', 'success');
+                        }).catch(err => {
+                            console.error('Failed to copy text: ', err);
+                            showToast('복사에 실패했습니다.', 'error');
+                        });
+                    }
+                });
+            });
+
+            // Prevent flip when clicking text fields
+            card.querySelectorAll('.copyable-text').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
             });
             
-            card.querySelector(".btn-vendor-edit").addEventListener("click", () => {
+            card.querySelector(".btn-vendor-edit").addEventListener("click", (e) => {
+                e.stopPropagation();
                 document.getElementById("vendor-id-field").value = v.card_id;
                 document.getElementById("v-name").value = v.name || "";
                 document.getElementById("v-company").value = v.company || "";
@@ -2337,7 +2427,8 @@ try {
                 openModal("modal-vendor-form");
             });
 
-            card.querySelector(".btn-vendor-delete").addEventListener("click", async () => {
+            card.querySelector(".btn-vendor-delete").addEventListener("click", async (e) => {
+                e.stopPropagation();
                 if (!confirm(`'${v.name}' 명함을 삭제하시겠습니까?`)) return;
                 const payload = state.vendors.filter(vendor => vendor.card_id !== v.card_id);
                 await syncData("vendors", payload);
